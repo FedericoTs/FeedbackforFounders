@@ -30,8 +30,13 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppRoutes() {
+  // For the tempo routes - moved before the main routes to ensure proper routing
+  const tempoRoutes =
+    import.meta.env.VITE_TEMPO === "true" ? useRoutes(routes) : null;
+
   return (
     <>
+      {tempoRoutes}
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<LoginForm />} />
@@ -53,8 +58,10 @@ function AppRoutes() {
           <Route path="analytics" element={<Analytics />} />
           <Route path="profile" element={<Profile />} />
         </Route>
+
+        {/* Add this before any catchall route to allow Tempo to capture routes */}
+        {import.meta.env.VITE_TEMPO === "true" && <Route path="/tempobook/*" />}
       </Routes>
-      {import.meta.env.VITE_TEMPO === "true" && useRoutes(routes)}
     </>
   );
 }
