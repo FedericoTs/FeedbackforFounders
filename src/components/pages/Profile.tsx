@@ -118,6 +118,7 @@ const Profile = () => {
           },
         };
 
+        console.log("Setting profile data:", validData);
         setProfileData(validData);
 
         // Initialize form data
@@ -217,8 +218,11 @@ const Profile = () => {
   };
 
   const handleSkillsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Allow spaces in skills, only split by commas
-    const skillsArray = e.target.value
+    // Store the raw input value to preserve spaces
+    const inputValue = e.target.value;
+
+    // Split by commas, but preserve spaces within each skill
+    const skillsArray = inputValue
       .split(",")
       .map((skill) => skill.trim())
       .filter((skill) => skill !== "");
@@ -255,16 +259,16 @@ const Profile = () => {
         skills: filteredSkills,
       };
 
-      // Update profile
+      // Update profile in Supabase
       await profileService.updateProfile(updateData);
 
       try {
         // Add a small delay to ensure database operations complete
         await new Promise((resolve) => setTimeout(resolve, 500));
 
-        // Refresh profile data
+        // Refresh profile data from Supabase
         const updatedProfile = await profileService.getProfile();
-        console.log("Refreshed profile data:", updatedProfile);
+        console.log("Refreshed profile data from Supabase:", updatedProfile);
 
         // Ensure we have valid data with defaults for missing properties
         const validData = {
@@ -314,13 +318,13 @@ const Profile = () => {
       setIsEditing(false);
       toast({
         title: "Success",
-        description: "Your profile has been updated.",
+        description: "Your profile has been updated in Supabase.",
       });
     } catch (error) {
       console.error("Error updating profile:", error);
       toast({
         title: "Error",
-        description: "Failed to update profile. Please try again.",
+        description: "Failed to update profile in Supabase. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -445,6 +449,7 @@ const Profile = () => {
                       name="bio"
                       value={formData.bio}
                       onChange={handleInputChange}
+                      placeholder="Tell us about yourself..."
                       className="border-slate-200 dark:border-slate-700 min-h-24"
                     />
                   </div>
@@ -457,6 +462,7 @@ const Profile = () => {
                       name="location"
                       value={formData.location}
                       onChange={handleInputChange}
+                      placeholder="City, Country"
                       className="border-slate-200 dark:border-slate-700"
                     />
                   </div>
@@ -469,6 +475,7 @@ const Profile = () => {
                       name="website"
                       value={formData.website}
                       onChange={handleInputChange}
+                      placeholder="https://yourwebsite.com"
                       className="border-slate-200 dark:border-slate-700"
                     />
                   </div>
@@ -485,7 +492,8 @@ const Profile = () => {
                       className="border-slate-200 dark:border-slate-700"
                     />
                     <p className="text-xs text-slate-500 mt-1">
-                      Separate skills with commas
+                      Separate skills with commas. Spaces within skills are
+                      allowed (e.g., "Web Design, UI/UX").
                     </p>
                   </div>
 
@@ -515,27 +523,36 @@ const Profile = () => {
                     </span>
                   </div>
 
-                  {profileData.user.bio && (
-                    <div className="flex items-start gap-2">
-                      <MessageSquare className="h-4 w-4 text-slate-500 mt-1" />
+                  <div className="flex items-start gap-2">
+                    <MessageSquare className="h-4 w-4 text-slate-500 mt-1" />
+                    {profileData.user.bio ? (
                       <span className="text-sm text-slate-700 dark:text-slate-300">
                         {profileData.user.bio}
                       </span>
-                    </div>
-                  )}
+                    ) : (
+                      <span className="text-sm text-slate-500 italic">
+                        No bio added yet. Click "Edit Profile" to add your bio.
+                      </span>
+                    )}
+                  </div>
 
-                  {profileData.user.location && (
-                    <div className="flex items-center gap-2">
-                      <Globe className="h-4 w-4 text-slate-500" />
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-slate-500" />
+                    {profileData.user.location ? (
                       <span className="text-sm text-slate-700 dark:text-slate-300">
                         {profileData.user.location}
                       </span>
-                    </div>
-                  )}
+                    ) : (
+                      <span className="text-sm text-slate-500 italic">
+                        No location added yet. Click "Edit Profile" to add your
+                        location.
+                      </span>
+                    )}
+                  </div>
 
-                  {profileData.user.website && (
-                    <div className="flex items-center gap-2">
-                      <ExternalLink className="h-4 w-4 text-slate-500" />
+                  <div className="flex items-center gap-2">
+                    <ExternalLink className="h-4 w-4 text-slate-500" />
+                    {profileData.user.website ? (
                       <a
                         href={
                           profileData.user.website.startsWith("http")
@@ -548,14 +565,19 @@ const Profile = () => {
                       >
                         {profileData.user.website.replace(/^https?:\/\//, "")}
                       </a>
-                    </div>
-                  )}
+                    ) : (
+                      <span className="text-sm text-slate-500 italic">
+                        No website added yet. Click "Edit Profile" to add your
+                        website.
+                      </span>
+                    )}
+                  </div>
 
-                  {profileData?.skills?.length > 0 && (
-                    <div className="pt-2">
-                      <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                        Skills
-                      </h4>
+                  <div className="pt-2">
+                    <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      Skills
+                    </h4>
+                    {profileData?.skills?.length > 0 ? (
                       <div className="flex flex-wrap gap-2">
                         {profileData.skills.map((skill) => (
                           <Badge
@@ -567,8 +589,13 @@ const Profile = () => {
                           </Badge>
                         ))}
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      <p className="text-sm text-slate-500 italic">
+                        No skills added yet. Click "Edit Profile" to add your
+                        skills.
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
             </CardContent>
