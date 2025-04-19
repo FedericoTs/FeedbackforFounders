@@ -656,13 +656,13 @@ export default function LandingPage() {
               <TabsList className="grid w-full grid-cols-2 mb-8">
                 <TabsTrigger
                   value="creator"
-                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white rounded-full py-3 data-[state=active]:border-none data-[state=active]:shadow-md"
+                  className="bg-slate-100 text-slate-700 rounded-full py-3 border-none transition-all duration-300 data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-md"
                 >
                   For Creators
                 </TabsTrigger>
                 <TabsTrigger
                   value="reviewer"
-                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white rounded-full py-3 data-[state=active]:border-none data-[state=active]:shadow-md"
+                  className="bg-slate-100 text-slate-700 rounded-full py-3 border-none transition-all duration-300 data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white data-[state=active]:shadow-md"
                 >
                   For Feedback Providers
                 </TabsTrigger>
@@ -771,11 +771,11 @@ export default function LandingPage() {
 
           <div className="container px-4 mx-auto">
             <div className="text-center mb-16 max-w-3xl mx-auto">
-              <Badge className="mb-4 bg-gradient-to-r from-amber-100 to-orange-100 text-amber-700 hover:from-amber-200 hover:to-orange-200 border-none px-3 py-1 rounded-full shadow-sm">
+              <Badge className="mb-4 bg-gradient-to-r from-teal-100 to-cyan-100 text-teal-700 hover:from-teal-200 hover:to-cyan-200 border-none px-3 py-1 rounded-full shadow-sm">
                 <Trophy className="h-3.5 w-3.5 mr-1.5 inline" />
                 Gamification
               </Badge>
-              <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4 bg-clip-text text-transparent bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500">
+              <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4 bg-clip-text text-transparent bg-gradient-to-r from-teal-500 via-cyan-500 to-emerald-500">
                 Earn While You Learn
               </h2>
               <p className="text-slate-600 text-lg">
@@ -791,7 +791,7 @@ export default function LandingPage() {
                   key={index}
                   className="group bg-white/80 backdrop-blur-sm border-slate-100 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden"
                 >
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 via-orange-400 to-rose-400 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-500" />
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-teal-400 via-cyan-400 to-emerald-400 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-500" />
                   <CardHeader className="pb-2">
                     <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center mb-4 shadow-sm border border-slate-200 group-hover:scale-110 transition-transform duration-300">
                       {element.icon}
@@ -965,8 +965,8 @@ export default function LandingPage() {
                       </h4>
                       <div className="grid grid-cols-4 gap-2">
                         <div className="bg-white rounded-lg p-2 border border-slate-100 flex flex-col items-center">
-                          <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center mb-1">
-                            <Trophy className="h-5 w-5 text-amber-500" />
+                          <div className="h-10 w-10 rounded-full bg-teal-100 flex items-center justify-center mb-1">
+                            <Trophy className="h-5 w-5 text-teal-500" />
                           </div>
                           <span className="text-xs text-slate-600 text-center">
                             First Feedback
