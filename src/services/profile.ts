@@ -6,6 +6,8 @@ export interface ProfileUpdateData {
   location?: string;
   website?: string;
   skills?: string[];
+  avatar_url?: string;
+  banner_url?: string;
   socialLinks?: {
     platform: string;
     username: string;
@@ -244,6 +246,8 @@ export const profileService = {
         location: profileData.location || "",
         website: profileData.website || "",
         updated_at: new Date().toISOString(),
+        ...(profileData.avatar_url && { avatar_url: profileData.avatar_url }),
+        ...(profileData.banner_url && { banner_url: profileData.banner_url }),
       };
 
       console.log("User updates to be sent to database:", userUpdates);

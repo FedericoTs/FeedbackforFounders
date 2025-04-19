@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, ChangeEvent } from "react";
+import { supabase } from "../../../supabase/supabase";
 import {
   Card,
   CardContent,
@@ -68,6 +69,82 @@ const getIconComponent = (iconName: string, className = "h-5 w-5") => {
 };
 
 const Profile = () => {
+  // Function to handle image uploads
+  const handleImageUpload = async (
+    e: ChangeEvent<HTMLInputElement>,
+    type: "avatar" | "banner",
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      // Show loading state
+      setIsSaving(true);
+
+      // Create a unique file name
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+
+      // Upload to Supabase Storage - using 'avatars' bucket directly
+      const bucketName = type === "avatar" ? "avatars" : "banners";
+
+      // Try to create the bucket if it doesn't exist (will succeed silently if it already exists)
+      try {
+        await supabase.storage.createBucket(bucketName, {
+          public: true,
+          fileSizeLimit: 1024 * 1024 * 2, // 2MB limit
+        });
+      } catch (bucketError) {
+        console.log(`Bucket ${bucketName} might already exist:`, bucketError);
+        // Continue anyway as the bucket might already exist
+      }
+
+      // Upload to the appropriate bucket
+      const { data, error } = await supabase.storage
+        .from(bucketName)
+        .upload(fileName, file);
+
+      if (error) {
+        throw error;
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from(bucketName)
+        .getPublicUrl(fileName);
+
+      // Update form data with new image URL
+      if (type === "avatar") {
+        setFormData((prev) => ({ ...prev, avatar_url: urlData.publicUrl }));
+      } else {
+        setFormData((prev) => ({ ...prev, banner_url: urlData.publicUrl }));
+      }
+
+      // Save the profile with the new image URL
+      await profileService.updateProfile({
+        ...formData,
+        [type === "avatar" ? "avatar_url" : "banner_url"]: urlData.publicUrl,
+      });
+
+      // Refresh profile data
+      const updatedProfile = await profileService.getProfile();
+      setProfileData(updatedProfile);
+
+      toast({
+        title: "Success",
+        description: `Your ${type} has been updated.`,
+      });
+    } catch (error) {
+      console.error(`Error uploading ${type}:`, error);
+      toast({
+        title: "Error",
+        description: `Failed to upload ${type}. Please try again.`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
   const { user } = useAuth();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
@@ -82,6 +159,8 @@ const Profile = () => {
     location: "",
     website: "",
     skills: [],
+    avatar_url: "",
+    banner_url: "",
     socialLinks: [
       { platform: "twitter", username: "" },
       { platform: "github", username: "" },
@@ -128,6 +207,8 @@ const Profile = () => {
           location: validData.user.location || "",
           website: validData.user.website || "",
           skills: validData.skills || [],
+          avatar_url: validData.user.avatar_url || "",
+          banner_url: validData.user.banner_url || "",
           socialLinks:
             validData.socialLinks.length > 0
               ? validData.socialLinks.map((link: any) => ({
@@ -179,6 +260,8 @@ const Profile = () => {
           location: "",
           website: "",
           skills: [],
+          avatar_url: "",
+          banner_url: "",
           socialLinks: [
             { platform: "twitter", username: "" },
             { platform: "github", username: "" },
@@ -350,7 +433,35 @@ const Profile = () => {
       {/* Profile Header */}
       <div className="relative mb-8">
         {/* Cover Image */}
-        <div className="h-48 w-full rounded-xl bg-gradient-to-r from-teal-500 via-cyan-500 to-emerald-500 overflow-hidden">
+        <div className="h-48 w-full rounded-xl bg-gradient-to-r from-teal-500 via-cyan-500 to-emerald-500 overflow-hidden relative">
+          {profileData.user.banner_url && (
+            <img
+              src={profileData.user.banner_url}
+              alt="Profile banner"
+              className="w-full h-full object-cover absolute inset-0"
+            />
+          )}
+          {isEditing && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+              <Button
+                variant="outline"
+                size="sm"
+                className="bg-white/80 backdrop-blur-sm hover:bg-white"
+                onClick={() =>
+                  document.getElementById("banner-upload")?.click()
+                }
+              >
+                <Camera className="h-4 w-4 mr-2" /> Change Banner
+              </Button>
+              <input
+                id="banner-upload"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handleImageUpload(e, "banner")}
+              />
+            </div>
+          )}
           <div className="absolute top-4 right-4">
             <Button
               variant="outline"
@@ -378,7 +489,10 @@ const Profile = () => {
             <div className="absolute inset-0 rounded-full bg-gradient-to-r from-teal-400 to-cyan-400 blur-[6px] opacity-75" />
             <Avatar className="h-32 w-32 border-4 border-white dark:border-slate-800 relative">
               <AvatarImage
-                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email}`}
+                src={
+                  profileData.user.avatar_url ||
+                  `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email}`
+                }
                 alt={profileData.user.full_name || user?.email || ""}
               />
               <AvatarFallback>
@@ -394,10 +508,20 @@ const Profile = () => {
                 variant="outline"
                 size="icon"
                 className="absolute bottom-0 right-0 rounded-full bg-white dark:bg-slate-800 h-8 w-8"
+                onClick={() =>
+                  document.getElementById("avatar-upload")?.click()
+                }
               >
                 <Camera className="h-4 w-4" />
               </Button>
             )}
+            <input
+              id="avatar-upload"
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => handleImageUpload(e, "avatar")}
+            />
           </div>
           <div className="mb-4 ml-4">
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
