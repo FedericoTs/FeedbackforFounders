@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect } from "react";
 import {
   Card,
@@ -5,12 +7,19 @@ import {
   CardDescription,
   CardFooter,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { CheckCircle2, ChevronRight, Loader2, X } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronRight,
+  Loader2,
+  X,
+  Sparkles,
+  CreditCard,
+  Shield,
+} from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "../../../supabase/auth";
 import { supabase } from "../../../supabase/supabase";
@@ -166,17 +175,36 @@ export default function PricingSection() {
     return basicFeatures;
   };
 
+  // Get plan color based on type
+  const getPlanColor = (planType: string) => {
+    if (planType.includes("ENTERPRISE")) return "emerald";
+    if (planType.includes("PRO")) return "cyan";
+    return "teal";
+  };
+
+  // Get plan icon based on type
+  const getPlanIcon = (planType: string) => {
+    if (planType.includes("ENTERPRISE")) return <Shield className="h-5 w-5" />;
+    if (planType.includes("PRO")) return <CreditCard className="h-5 w-5" />;
+    return <Sparkles className="h-5 w-5" />;
+  };
+
   return (
-    <section className="py-16 md:py-24 bg-white">
+    <section className="py-20 md:py-32 relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-b from-slate-50 to-white -z-10" />
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+
       <div className="container px-4 mx-auto">
-        <div className="text-center mb-16">
-          <Badge className="mb-4 bg-gray-200 text-gray-800 hover:bg-gray-300 border-none">
+        <div className="text-center mb-16 max-w-3xl mx-auto">
+          <Badge className="mb-4 bg-gradient-to-r from-teal-100 to-cyan-100 text-teal-700 hover:from-teal-200 hover:to-cyan-200 border-none px-3 py-1 rounded-full shadow-sm">
+            <Sparkles className="h-3.5 w-3.5 mr-1.5 inline" />
             Pricing
           </Badge>
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4 text-black">
+          <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4 bg-clip-text text-transparent bg-gradient-to-r from-teal-500 via-cyan-500 to-emerald-500">
             Simple, Transparent Pricing
           </h2>
-          <p className="text-gray-600 max-w-[700px] mx-auto">
+          <p className="text-slate-600 text-lg">
             Choose the perfect plan for your needs. All plans include access to
             our core features. No hidden fees or surprises.
           </p>
@@ -184,12 +212,12 @@ export default function PricingSection() {
 
         {error && (
           <div
-            className="bg-red-100 border border-red-200 text-red-800 px-4 py-3 rounded relative mb-6"
+            className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl relative mb-6 shadow-sm"
             role="alert"
           >
             <span className="block sm:inline">{error}</span>
             <button
-              className="absolute top-0 bottom-0 right-0 px-4 py-3"
+              className="absolute top-0 bottom-0 right-0 px-4 py-3 text-rose-600 hover:text-rose-800"
               onClick={() => setError("")}
             >
               <span className="sr-only">Dismiss</span>
@@ -199,56 +227,89 @@ export default function PricingSection() {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {plans.map((plan) => (
-            <Card
-              key={plan.id}
-              className="flex flex-col h-full border-gray-200 bg-gradient-to-b from-white to-gray-50 shadow-lg hover:shadow-xl transition-all"
-            >
-              <CardHeader className="pb-4">
-                <CardDescription className="text-sm text-gray-600">
-                  {plan.interval_count === 1
-                    ? "Monthly"
-                    : `Every ${plan.interval_count} ${plan.interval}s`}
-                </CardDescription>
-                <div className="mt-4">
-                  <span className="text-4xl font-bold text-black">
-                    {formatCurrency(plan.amount, plan.currency)}
-                  </span>
-                  <span className="text-gray-600">/{plan.interval}</span>
-                </div>
-              </CardHeader>
-              <CardContent className="flex-grow">
-                <Separator className="my-4 bg-gray-200" />
-                <ul className="space-y-3">
-                  {getPlanFeatures(plan.product).map((feature, index) => (
-                    <li key={index} className="flex items-start text-gray-700">
-                      <CheckCircle2 className="h-5 w-5 text-black mr-2 flex-shrink-0 mt-0.5" />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-              <CardFooter>
-                <Button
-                  className="w-full bg-black text-white hover:bg-gray-800"
-                  onClick={() => handleCheckout(plan.id)}
-                  disabled={isLoading}
-                >
-                  {isLoading && processingPlanId === plan.id ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      Subscribe Now
-                      <ChevronRight className="ml-1 h-4 w-4" />
-                    </>
-                  )}
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
+          {plans.map((plan) => {
+            const planColor = getPlanColor(plan.product);
+            const planIcon = getPlanIcon(plan.product);
+
+            return (
+              <Card
+                key={plan.id}
+                className="group flex flex-col h-full bg-white/90 backdrop-blur-sm border-slate-100 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden"
+              >
+                <div
+                  className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-${planColor}-400 via-${planColor}-500 to-${planColor}-400`}
+                />
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between">
+                    <CardDescription className="text-sm text-slate-600 flex items-center">
+                      <div
+                        className={`flex h-6 w-6 items-center justify-center rounded-full bg-${planColor}-100 mr-2`}
+                      >
+                        {planIcon}
+                      </div>
+                      {plan.interval_count === 1
+                        ? "Monthly"
+                        : `Every ${plan.interval_count} ${plan.interval}s`}
+                    </CardDescription>
+                    <Badge
+                      className={`bg-${planColor}-100 text-${planColor}-700 hover:bg-${planColor}-200 border-none`}
+                    >
+                      {plan.product.includes("PRO")
+                        ? "Pro"
+                        : plan.product.includes("ENTERPRISE")
+                          ? "Enterprise"
+                          : "Basic"}
+                    </Badge>
+                  </div>
+                  <div className="mt-6">
+                    <span className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-teal-500 via-cyan-500 to-emerald-500">
+                      {formatCurrency(plan.amount, plan.currency)}
+                    </span>
+                    <span className="text-slate-600">/{plan.interval}</span>
+                  </div>
+                </CardHeader>
+                <CardContent className="flex-grow">
+                  <Separator className="my-4 bg-slate-100" />
+                  <ul className="space-y-3">
+                    {getPlanFeatures(plan.product).map((feature, index) => (
+                      <li
+                        key={index}
+                        className="flex items-start text-slate-700"
+                      >
+                        <div
+                          className={`flex h-5 w-5 items-center justify-center rounded-full bg-${planColor}-100 mr-2 flex-shrink-0 mt-0.5`}
+                        >
+                          <CheckCircle2
+                            className={`h-3 w-3 text-${planColor}-600`}
+                          />
+                        </div>
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+                <CardFooter>
+                  <Button
+                    className={`w-full bg-gradient-to-r from-${planColor}-500 to-${planColor}-600 hover:from-${planColor}-600 hover:to-${planColor}-700 text-white border-none shadow-md hover:shadow-lg transition-all duration-300 rounded-full group-hover:scale-[1.02] transform-gpu`}
+                    onClick={() => handleCheckout(plan.id)}
+                    disabled={isLoading}
+                  >
+                    {isLoading && processingPlanId === plan.id ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        Subscribe Now
+                        <ChevronRight className="ml-1 h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
+                      </>
+                    )}
+                  </Button>
+                </CardFooter>
+              </Card>
+            );
+          })}
         </div>
       </div>
     </section>

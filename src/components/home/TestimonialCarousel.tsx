@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useCallback, useEffect } from "react";
 import {
   Card,
@@ -9,7 +11,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Star } from "lucide-react";
+import { ChevronLeft, ChevronRight, Star, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 // Testimonial interface
@@ -101,29 +103,34 @@ export default function TestimonialCarousel({
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
             className="w-full"
           >
-            <Card className="border-gray-200 bg-gradient-to-b from-white to-gray-50 shadow-md mx-auto max-w-2xl">
+            <Card className="bg-white/90 backdrop-blur-sm border-slate-100 rounded-xl shadow-lg overflow-hidden mx-auto max-w-2xl">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-teal-400 via-cyan-500 to-emerald-400" />
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-4">
-                  <Avatar>
-                    <AvatarImage
-                      src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${testimonials[activeIndex].avatar}`}
-                      alt={testimonials[activeIndex].name}
-                    />
-                    <AvatarFallback>
-                      {testimonials[activeIndex].name[0]}
-                    </AvatarFallback>
-                  </Avatar>
+                  <div className="relative">
+                    <div className="absolute inset-0 rounded-full bg-gradient-to-r from-teal-400 to-cyan-400 blur-[6px] opacity-50" />
+                    <Avatar className="h-10 w-10 ring-2 ring-white">
+                      <AvatarImage
+                        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${testimonials[activeIndex].avatar}`}
+                        alt={testimonials[activeIndex].name}
+                      />
+                      <AvatarFallback>
+                        {testimonials[activeIndex].name[0]}
+                      </AvatarFallback>
+                    </Avatar>
+                  </div>
                   <div>
-                    <CardTitle className="text-base text-black">
+                    <CardTitle className="text-base text-slate-900">
                       {testimonials[activeIndex].name}
                     </CardTitle>
-                    <CardDescription className="text-gray-600">
+                    <CardDescription className="text-slate-600">
                       {testimonials[activeIndex].role} at{" "}
                       {testimonials[activeIndex].company}
                     </CardDescription>
                   </div>
                 </div>
-                <Badge className="mt-2 ml-12" variant="outline">
+                <Badge className="mt-2 ml-14 bg-gradient-to-r from-teal-100 to-cyan-100 text-teal-700 hover:from-teal-200 hover:to-cyan-200 border-none">
+                  <Sparkles className="h-3 w-3 mr-1.5 inline" />
                   {testimonials[activeIndex].type === "creator"
                     ? "Creator"
                     : "Feedback Provider"}
@@ -134,11 +141,11 @@ export default function TestimonialCarousel({
                   {[...Array(5)].map((_, i) => (
                     <Star
                       key={i}
-                      className="h-4 w-4 fill-yellow-500 text-yellow-500"
+                      className="h-4 w-4 fill-amber-400 text-amber-400"
                     />
                   ))}
                 </div>
-                <p className="text-gray-600">
+                <p className="text-slate-600">
                   {testimonials[activeIndex].content}
                 </p>
               </CardContent>
@@ -156,28 +163,31 @@ export default function TestimonialCarousel({
               setDirection(index > activeIndex ? 1 : -1);
               setActiveIndex(index);
             }}
-            className={`h-2 w-2 rounded-full transition-all ${index === activeIndex ? "bg-purple-600 w-4" : "bg-gray-300"}`}
+            className={`h-2 rounded-full transition-all ${
+              index === activeIndex
+                ? "bg-gradient-to-r from-teal-400 to-cyan-500 w-6"
+                : "bg-slate-200 w-2 hover:bg-slate-300"
+            }`}
             aria-label={`Go to testimonial ${index + 1}`}
           />
         ))}
-        n
       </div>
 
       {/* Navigation buttons */}
-      <div className="absolute top-1/2 -translate-y-1/2 w-full flex justify-between pointer-events-none">
+      <div className="absolute top-1/2 -translate-y-1/2 w-full flex justify-between pointer-events-none px-2">
         <Button
-          variant="ghost"
+          variant="outline"
           size="icon"
-          className="rounded-full bg-white/80 shadow-md text-gray-700 hover:text-purple-600 hover:bg-white pointer-events-auto"
+          className="rounded-full bg-white/80 backdrop-blur-sm border-slate-200 text-slate-700 hover:text-teal-600 hover:border-teal-200 hover:bg-white shadow-md pointer-events-auto h-10 w-10"
           onClick={prevTestimonial}
           aria-label="Previous testimonial"
         >
           <ChevronLeft className="h-5 w-5" />
         </Button>
         <Button
-          variant="ghost"
+          variant="outline"
           size="icon"
-          className="rounded-full bg-white/80 shadow-md text-gray-700 hover:text-purple-600 hover:bg-white pointer-events-auto"
+          className="rounded-full bg-white/80 backdrop-blur-sm border-slate-200 text-slate-700 hover:text-teal-600 hover:border-teal-200 hover:bg-white shadow-md pointer-events-auto h-10 w-10"
           onClick={nextTestimonial}
           aria-label="Next testimonial"
         >
