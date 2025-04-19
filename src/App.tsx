@@ -3,11 +3,17 @@ import { Navigate, Route, Routes, useRoutes } from "react-router-dom";
 import routes from "tempo-routes";
 import LoginForm from "./components/auth/LoginForm";
 import SignUpForm from "./components/auth/SignUpForm";
-import Dashboard from "./components/pages/dashboard";
+import Dashboard from "./components/pages/Dashboard";
+import Discovery from "./components/pages/Discovery";
+import FeedbackInterface from "./components/pages/FeedbackInterface";
+import Analytics from "./components/pages/Analytics";
+import Profile from "./components/pages/Profile";
 import Success from "./components/pages/success";
 import Home from "./components/pages/home";
 import { AuthProvider, useAuth } from "../supabase/auth";
 import { Toaster } from "./components/ui/toaster";
+import { ThemeProvider } from "./components/ui/theme-provider";
+import DashboardLayout from "./components/dashboard/layout/DashboardLayout";
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -17,7 +23,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    return <Navigate to="/" />;
+    return <Navigate to="/login" />;
   }
 
   return <>{children}</>;
@@ -30,20 +36,23 @@ function AppRoutes() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<LoginForm />} />
         <Route path="/signup" element={<SignUpForm />} />
+        <Route path="/success" element={<Success />} />
+
+        {/* Dashboard routes with shared layout */}
         <Route
           path="/dashboard"
           element={
             <PrivateRoute>
-              <Dashboard />
+              <DashboardLayout />
             </PrivateRoute>
           }
-        />
-        <Route
-          path="/success"
-          element={
-            <Success />
-          }
-        />
+        >
+          <Route index element={<Dashboard />} />
+          <Route path="discovery" element={<Discovery />} />
+          <Route path="feedback" element={<FeedbackInterface />} />
+          <Route path="analytics" element={<Analytics />} />
+          <Route path="profile" element={<Profile />} />
+        </Route>
       </Routes>
       {import.meta.env.VITE_TEMPO === "true" && useRoutes(routes)}
     </>
@@ -52,12 +61,14 @@ function AppRoutes() {
 
 function App() {
   return (
-    <AuthProvider>
-      <Suspense fallback={<p>Loading...</p>}>
-        <AppRoutes />
-      </Suspense>
-      <Toaster />
-    </AuthProvider>
+    <ThemeProvider defaultTheme="light">
+      <AuthProvider>
+        <Suspense fallback={<p>Loading...</p>}>
+          <AppRoutes />
+        </Suspense>
+        <Toaster />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

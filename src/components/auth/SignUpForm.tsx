@@ -1,19 +1,17 @@
 import { useState } from "react";
 import { useAuth } from "../../../supabase/auth";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardFooter,
-} from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useNavigate, Link } from "react-router-dom";
 import AuthLayout from "./AuthLayout";
 import { UserPlus } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  DesignCard,
+  GradientButton,
+  GradientText,
+  GradientBadge,
+} from "@/components/ui/design-system";
 
 export default function SignUpForm() {
   const [email, setEmail] = useState("");
@@ -41,26 +39,37 @@ export default function SignUpForm() {
 
   return (
     <AuthLayout>
-      <Card className="w-full">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl text-center flex items-center justify-center gap-2">
-            <UserPlus className="h-5 w-5" /> Create an account
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+      <DesignCard className="w-full p-6 max-w-md mx-auto">
+        <div className="space-y-6">
+          <div className="space-y-2 text-center">
+            <div className="flex flex-col items-center justify-center gap-2">
+              <GradientBadge className="mb-2">
+                <UserPlus className="h-4 w-4 mr-1" /> Join FeedbackLoop
+              </GradientBadge>
+              <GradientText as="h1" className="text-2xl font-bold">
+                Create an account
+              </GradientText>
+            </div>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name</Label>
+              <Label htmlFor="fullName" className="text-slate-700">
+                Full Name
+              </Label>
               <Input
                 id="fullName"
                 placeholder="John Doe"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 required
+                className="border-slate-200 focus:border-teal-500 focus:ring-teal-500"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-slate-700">
+                Email
+              </Label>
               <Input
                 id="email"
                 type="email"
@@ -68,10 +77,13 @@ export default function SignUpForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className="border-slate-200 focus:border-teal-500 focus:ring-teal-500"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-slate-700">
+                Password
+              </Label>
               <Input
                 id="password"
                 type="password"
@@ -79,23 +91,28 @@ export default function SignUpForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                className="border-slate-200 focus:border-teal-500 focus:ring-teal-500"
               />
             </div>
-            {error && <p className="text-sm text-red-500">{error}</p>}
-            <Button type="submit" className="w-full">
+            {error && (
+              <p className="text-sm text-rose-500 font-medium">{error}</p>
+            )}
+            <GradientButton type="submit" className="w-full py-2">
               Create account
-            </Button>
+            </GradientButton>
           </form>
-        </CardContent>
-        <CardFooter className="flex flex-col space-y-4">
+
           <div className="text-sm text-center text-slate-600">
             Already have an account?{" "}
-            <Link to="/login" className="text-primary hover:underline">
+            <Link
+              to="/login"
+              className="text-teal-500 hover:text-teal-600 hover:underline font-medium"
+            >
               Sign in
             </Link>
           </div>
-        </CardFooter>
-      </Card>
+        </div>
+      </DesignCard>
     </AuthLayout>
   );
 }
