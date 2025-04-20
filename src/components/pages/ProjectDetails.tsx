@@ -112,6 +112,10 @@ const ProjectDetails = () => {
 
   const fetchUserPoints = async () => {
     if (!user) return;
+    if (!supabase) {
+      console.error("Supabase client not initialized");
+      return;
+    }
 
     try {
       const { data, error } = await supabase
@@ -121,9 +125,11 @@ const ProjectDetails = () => {
         .single();
 
       if (error) throw error;
-      setUserPoints(data.points || 0);
+      setUserPoints(data?.points || 0);
     } catch (error) {
       console.error("Error fetching user points:", error);
+      // Set default value of 0 points if there's an error
+      setUserPoints(0);
     }
   };
 
