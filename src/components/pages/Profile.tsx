@@ -153,12 +153,15 @@ const Profile = () => {
   const [profileData, setProfileData] = useState<ProfileResponse | null>(null);
 
   // Form state
-  const [formData, setFormData] = useState<ProfileUpdateData>({
+  const [formData, setFormData] = useState<
+    ProfileUpdateData & { _skillsInput?: string }
+  >({
     name: "",
     bio: "",
     location: "",
     website: "",
     skills: [],
+    _skillsInput: "",
     avatar_url: "",
     banner_url: "",
     socialLinks: [
@@ -201,12 +204,14 @@ const Profile = () => {
         setProfileData(validData);
 
         // Initialize form data
+        const skills = validData.skills || [];
         setFormData({
           name: validData.user.full_name || "",
           bio: validData.user.bio || "",
           location: validData.user.location || "",
           website: validData.user.website || "",
-          skills: validData.skills || [],
+          skills: skills,
+          _skillsInput: skills.join(", "),
           avatar_url: validData.user.avatar_url || "",
           banner_url: validData.user.banner_url || "",
           socialLinks:
@@ -260,6 +265,7 @@ const Profile = () => {
           location: "",
           website: "",
           skills: [],
+          _skillsInput: "",
           avatar_url: "",
           banner_url: "",
           socialLinks: [
@@ -301,20 +307,16 @@ const Profile = () => {
   };
 
   const handleSkillsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Store the raw input value to preserve spaces
+    // Simply store the raw input value without processing
     const inputValue = e.target.value;
 
-    // Split by commas, but preserve spaces within each skill
-    const skillsArray = inputValue
-      .split(",")
-      .map((skill) => skill.trim())
-      .filter((skill) => skill !== "");
-
-    console.log("Skills array:", skillsArray);
-
+    // Only split and process when saving the form, not during typing
+    // This allows spaces and commas to be typed normally
     setFormData((prev) => ({
       ...prev,
-      skills: skillsArray,
+      skills: prev.skills,
+      // Store the raw input as a temporary property
+      _skillsInput: inputValue,
     }));
   };
 
@@ -329,9 +331,20 @@ const Profile = () => {
           (link) => link.username && link.username.trim() !== "",
         ) || [];
 
+      // Process the skills input field when saving
+      let processedSkills = formData.skills || [];
+
+      // If we have raw input, process it
+      if (formData._skillsInput !== undefined) {
+        processedSkills = formData._skillsInput
+          .split(",")
+          .map((skill) => skill.trim())
+          .filter((skill) => skill !== "");
+      }
+
       // Ensure skills are properly filtered
       const filteredSkills =
-        formData.skills?.filter((skill) => skill && skill.trim() !== "") || [];
+        processedSkills.filter((skill) => skill && skill.trim() !== "") || [];
 
       console.log("Filtered skills before update:", filteredSkills);
 
@@ -610,7 +623,9 @@ const Profile = () => {
                     </label>
                     <Input
                       name="skills"
-                      value={formData.skills?.join(", ")}
+                      value={
+                        formData._skillsInput || formData.skills?.join(", ")
+                      }
                       onChange={handleSkillsChange}
                       placeholder="Web Design, UI/UX, React Development"
                       className="border-slate-200 dark:border-slate-700"

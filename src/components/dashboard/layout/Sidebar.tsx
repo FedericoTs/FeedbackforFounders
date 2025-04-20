@@ -84,6 +84,7 @@ const Sidebar = ({
     if (currentPath === "discovery") return "Discovery";
     if (currentPath === "feedback") return "Feedback";
     if (currentPath === "analytics") return "Analytics";
+    if (currentPath === "projects") return "Projects";
     if (currentPath === "profile") return "Profile";
     return activeItem || "Dashboard";
   };

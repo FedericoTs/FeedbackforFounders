@@ -7,6 +7,7 @@ import Dashboard from "./components/pages/Dashboard";
 import Discovery from "./components/pages/Discovery";
 import FeedbackInterface from "./components/pages/FeedbackInterface";
 import Analytics from "./components/pages/Analytics";
+import Projects from "./components/pages/Projects";
 import Profile from "./components/pages/Profile";
 import Success from "./components/pages/success";
 import Home from "./components/pages/home";
@@ -56,6 +57,7 @@ function AppRoutes() {
           <Route path="discovery" element={<Discovery />} />
           <Route path="feedback" element={<FeedbackInterface />} />
           <Route path="analytics" element={<Analytics />} />
+          <Route path="projects" element={<Projects />} />
           <Route path="profile" element={<Profile />} />
         </Route>
 
