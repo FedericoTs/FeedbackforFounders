@@ -32,6 +32,7 @@ import { supabase } from "../../../supabase/supabase";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "../../../supabase/auth";
 import { gamificationService } from "@/services/gamification";
+import { activityService } from "@/services/activity";
 
 interface Project {
   id: string;
@@ -134,9 +135,26 @@ const ProjectPromoteDialog = ({
       await gamificationService.awardPoints({
         userId: user.id,
         points: -promotionPoints, // Negative points for deduction
-        activityType: "project_created", // Using this type as a workaround
+        activityType: "project_promotion", // Using a more accurate type
         description: `Spent ${promotionPoints} points to promote project: ${project.title}`,
         metadata: { projectId: project.id, promotionType: audience },
+      });
+
+      // Record activity in user_activity table
+      await activityService.recordActivity({
+        user_id: user.id,
+        activity_type: "project_promotion",
+        description: `Promoted project: ${project.title} with ${promotionPoints} points`,
+        points: -promotionPoints,
+        project_id: project.id,
+        metadata: {
+          projectId: project.id,
+          projectTitle: project.title,
+          promotionType: audience,
+          pointsSpent: promotionPoints,
+          duration: duration,
+          estimatedReach: calculateEstimatedReach(),
+        },
       });
 
       // Update project to featured if not already

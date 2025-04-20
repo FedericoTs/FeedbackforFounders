@@ -141,54 +141,169 @@ export const profileService = {
         response.achievements = achievements;
       }
 
-      // 5. Get activity
-      const { data: activity, error: activityError } = await supabase
-        .from("user_activity")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(10);
+      // 5. Get activity - Simplified to avoid join issues
+      try {
+        const { data: activity, error: activityError } = await supabase
+          .from("user_activity")
+          .select("*")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(10);
 
-      if (!activityError && activity) {
-        response.activity = activity;
+        if (!activityError && activity) {
+          console.log("Retrieved activity data:", activity);
+          response.activity = activity;
+        } else {
+          console.error("Error fetching activity:", activityError);
+          // Set empty array as fallback
+          response.activity = [];
+        }
+      } catch (activityFetchError) {
+        console.error("Exception fetching activity:", activityFetchError);
+        response.activity = [];
       }
 
       // 6. Calculate stats
       response.stats.pointsEarned = response.user?.points || 0;
 
-      // Count projects created
-      const { count: projectCount, error: projectCountError } = await supabase
-        .from("user_activity")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", userId)
-        .eq("activity_type", "project_created");
+      // Count projects created - Check projects table directly
+      try {
+        const { count: projectCount, error: projectCountError } = await supabase
+          .from("projects")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", userId);
 
-      if (!projectCountError && projectCount !== null) {
-        response.stats.projectsCreated = projectCount;
+        if (!projectCountError && projectCount !== null) {
+          console.log("Projects created count:", projectCount);
+          response.stats.projectsCreated = projectCount;
+        } else {
+          console.error("Error counting projects:", projectCountError);
+
+          // Fallback to user_activity table if direct project count fails
+          try {
+            const { count: activityProjectCount, error: activityProjectError } =
+              await supabase
+                .from("user_activity")
+                .select("id", { count: "exact", head: true })
+                .eq("user_id", userId)
+                .eq("activity_type", "project_created");
+
+            if (!activityProjectError && activityProjectCount !== null) {
+              console.log(
+                "Projects created count from activity:",
+                activityProjectCount,
+              );
+              response.stats.projectsCreated = activityProjectCount;
+            } else {
+              // Default to 0 if both methods fail
+              response.stats.projectsCreated = 0;
+            }
+          } catch (activityCountError) {
+            console.error(
+              "Error in activity count fallback:",
+              activityCountError,
+            );
+            response.stats.projectsCreated = 0;
+          }
+        }
+      } catch (projectsCountError) {
+        console.error("Exception counting projects:", projectsCountError);
+        response.stats.projectsCreated = 0;
       }
 
-      // Count feedback received
-      const { count: feedbackReceivedCount, error: feedbackReceivedError } =
-        await supabase
-          .from("user_activity")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", userId)
-          .eq("activity_type", "feedback_received");
+      // Count feedback received - simplified to avoid subquery issues
+      try {
+        const { count: feedbackReceivedCount, error: feedbackReceivedError } =
+          await supabase
+            .from("project_feedback")
+            .select("id", { count: "exact", head: true })
+            .eq("project_user_id", userId);
 
-      if (!feedbackReceivedError && feedbackReceivedCount !== null) {
-        response.stats.feedbackReceived = feedbackReceivedCount;
+        if (!feedbackReceivedError && feedbackReceivedCount !== null) {
+          console.log("Feedback received count:", feedbackReceivedCount);
+          response.stats.feedbackReceived = feedbackReceivedCount;
+        } else {
+          console.error(
+            "Error counting feedback received:",
+            feedbackReceivedError,
+          );
+
+          // Fallback to user_activity
+          try {
+            const {
+              count: activityFeedbackCount,
+              error: activityFeedbackError,
+            } = await supabase
+              .from("user_activity")
+              .select("id", { count: "exact", head: true })
+              .eq("user_id", userId)
+              .eq("activity_type", "feedback_received");
+
+            if (!activityFeedbackError && activityFeedbackCount !== null) {
+              response.stats.feedbackReceived = activityFeedbackCount;
+            } else {
+              // Default to 0 if both methods fail
+              response.stats.feedbackReceived = 0;
+            }
+          } catch (activityFeedbackCountError) {
+            console.error(
+              "Error in feedback activity count fallback:",
+              activityFeedbackCountError,
+            );
+            response.stats.feedbackReceived = 0;
+          }
+        }
+      } catch (feedbackCountError) {
+        console.error(
+          "Exception counting feedback received:",
+          feedbackCountError,
+        );
+        response.stats.feedbackReceived = 0;
       }
 
       // Count feedback given
-      const { count: feedbackGivenCount, error: feedbackGivenError } =
-        await supabase
-          .from("user_activity")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", userId)
-          .eq("activity_type", "feedback_given");
+      try {
+        const { count: feedbackGivenCount, error: feedbackGivenError } =
+          await supabase
+            .from("project_feedback")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", userId);
 
-      if (!feedbackGivenError && feedbackGivenCount !== null) {
-        response.stats.feedbackGiven = feedbackGivenCount;
+        if (!feedbackGivenError && feedbackGivenCount !== null) {
+          console.log("Feedback given count:", feedbackGivenCount);
+          response.stats.feedbackGiven = feedbackGivenCount;
+        } else {
+          console.error("Error counting feedback given:", feedbackGivenError);
+
+          // Fallback to user_activity
+          try {
+            const { count: activityGivenCount, error: activityGivenError } =
+              await supabase
+                .from("user_activity")
+                .select("id", { count: "exact", head: true })
+                .eq("user_id", userId)
+                .eq("activity_type", "feedback_given");
+
+            if (!activityGivenError && activityGivenCount !== null) {
+              response.stats.feedbackGiven = activityGivenCount;
+            } else {
+              // Default to 0 if both methods fail
+              response.stats.feedbackGiven = 0;
+            }
+          } catch (activityGivenCountError) {
+            console.error(
+              "Error in feedback given activity count fallback:",
+              activityGivenCountError,
+            );
+            response.stats.feedbackGiven = 0;
+          }
+        }
+      } catch (feedbackGivenCountError) {
+        console.error(
+          "Exception counting feedback given:",
+          feedbackGivenCountError,
+        );
+        response.stats.feedbackGiven = 0;
       }
 
       console.log("Profile data fetched successfully", response);

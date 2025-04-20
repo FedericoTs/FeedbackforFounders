@@ -345,13 +345,26 @@ const ProjectQuestionnairesPanel = ({
         return;
       }
 
-      await projectService.createQuestionnaire(
+      const createdQuestionnaire = await projectService.createQuestionnaire(
         newQuestionnaire as Omit<
           ProjectQuestionnaire,
           "id" | "created_at" | "updated_at"
         >,
         user.id,
       );
+
+      // Import and use activityService to record this activity
+      const { activityService } = await import("@/services/activity");
+      await activityService.recordActivity({
+        user_id: user.id,
+        activity_type: "questionnaire_created",
+        description: `Created questionnaire: ${newQuestionnaire.title}`,
+        project_id: projectId,
+        metadata: {
+          questionnaireTitle: newQuestionnaire.title,
+          questionCount: newQuestionnaire.questions?.length || 0,
+        },
+      });
 
       toast({
         title: "Success",

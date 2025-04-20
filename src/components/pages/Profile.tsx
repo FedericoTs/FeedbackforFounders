@@ -172,6 +172,29 @@ const Profile = () => {
     ],
   });
 
+  // Debug function to check user_activity table directly
+  const debugCheckUserActivity = async () => {
+    if (!user) return;
+
+    try {
+      console.log("Directly checking user_activity table for user:", user.id);
+      const { data, error } = await supabase
+        .from("user_activity")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (error) {
+        console.error("Error directly querying user_activity:", error);
+      } else {
+        console.log(`Found ${data?.length || 0} activity records:`, data);
+      }
+    } catch (e) {
+      console.error("Exception in direct user_activity check:", e);
+    }
+  };
+
   // Fetch profile data
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -188,10 +211,12 @@ const Profile = () => {
             points: 0,
             points_to_next_level: 100,
           },
-          socialLinks: data?.socialLinks || [],
-          skills: data?.skills || [],
-          achievements: data?.achievements || [],
-          activity: data?.activity || [],
+          socialLinks: Array.isArray(data?.socialLinks) ? data.socialLinks : [],
+          skills: Array.isArray(data?.skills) ? data.skills : [],
+          achievements: Array.isArray(data?.achievements)
+            ? data.achievements
+            : [],
+          activity: Array.isArray(data?.activity) ? data.activity : [],
           stats: data?.stats || {
             projectsCreated: 0,
             feedbackReceived: 0,
@@ -201,6 +226,8 @@ const Profile = () => {
         };
 
         console.log("Setting profile data:", validData);
+        console.log("Stats:", validData.stats);
+        console.log("Activity:", validData.activity);
         setProfileData(validData);
 
         // Initialize form data
@@ -282,6 +309,8 @@ const Profile = () => {
 
     if (user) {
       fetchProfileData();
+      // Also directly check user_activity table for debugging
+      debugCheckUserActivity();
     } else {
       setIsLoading(false);
     }
@@ -375,11 +404,26 @@ const Profile = () => {
             location: updateData.location || profileData.user.location || "",
             website: updateData.website || profileData.user.website || "",
           },
-          socialLinks: updatedProfile?.socialLinks || filteredSocialLinks || [],
-          skills: updatedProfile?.skills || updateData.skills || [],
-          achievements:
-            updatedProfile?.achievements || profileData.achievements || [],
-          activity: updatedProfile?.activity || profileData.activity || [],
+          socialLinks: Array.isArray(updatedProfile?.socialLinks)
+            ? updatedProfile.socialLinks
+            : Array.isArray(filteredSocialLinks)
+              ? filteredSocialLinks
+              : [],
+          skills: Array.isArray(updatedProfile?.skills)
+            ? updatedProfile.skills
+            : Array.isArray(updateData.skills)
+              ? updateData.skills
+              : [],
+          achievements: Array.isArray(updatedProfile?.achievements)
+            ? updatedProfile.achievements
+            : Array.isArray(profileData.achievements)
+              ? profileData.achievements
+              : [],
+          activity: Array.isArray(updatedProfile?.activity)
+            ? updatedProfile.activity
+            : Array.isArray(profileData.activity)
+              ? profileData.activity
+              : [],
           stats: updatedProfile?.stats ||
             profileData.stats || {
               projectsCreated: 0,
@@ -1023,7 +1067,8 @@ const Profile = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {profileData?.achievements?.length > 0 ? (
+              {Array.isArray(profileData?.achievements) &&
+              profileData.achievements.length > 0 ? (
                 <div className="grid grid-cols-2 gap-4">
                   {profileData.achievements.map((achievement) => (
                     <div
@@ -1079,7 +1124,8 @@ const Profile = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {profileData?.activity?.length > 0 ? (
+              {Array.isArray(profileData?.activity) &&
+              profileData.activity.length > 0 ? (
                 <div className="space-y-4">
                   {profileData.activity.map((activity) => {
                     const formattedDate = profileService.formatDate(
@@ -1103,6 +1149,18 @@ const Profile = () => {
                       case "project_created":
                         icon = <Edit className="h-4 w-4 text-indigo-500" />;
                         title = "Created project";
+                        // Use description directly since we're not joining with projects table
+                        description =
+                          activity.description || "Created a new project";
+                        break;
+                      case "project_updated":
+                        icon = <Edit className="h-4 w-4 text-blue-500" />;
+                        title = "Updated project";
+                        description = activity.description;
+                        break;
+                      case "project_promotion":
+                        icon = <Star className="h-4 w-4 text-amber-500" />;
+                        title = "Promoted project";
                         description = activity.description;
                         break;
                       case "feedback_received":
@@ -1120,7 +1178,8 @@ const Profile = () => {
                       default:
                         icon = <Star className="h-4 w-4 text-slate-500" />;
                         title = "Activity";
-                        description = activity.description;
+                        description =
+                          activity.description || "Performed an action";
                     }
 
                     return (

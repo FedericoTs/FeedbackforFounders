@@ -123,10 +123,20 @@ const ProjectGoalsPanel = ({ projectId }: ProjectGoalsPanelProps) => {
         return;
       }
 
-      await projectService.createProjectGoal(
+      const createdGoal = await projectService.createProjectGoal(
         newGoal as Omit<ProjectGoal, "id" | "created_at" | "updated_at">,
         user.id,
       );
+
+      // Import and use activityService to record this activity
+      const { activityService } = await import("@/services/activity");
+      await activityService.recordActivity({
+        user_id: user.id,
+        activity_type: "goal_created",
+        description: `Created goal: ${newGoal.title} for project`,
+        project_id: projectId,
+        metadata: { goalTitle: newGoal.title, goalType: newGoal.goal_type },
+      });
 
       toast({
         title: "Success",
@@ -213,6 +223,16 @@ const ProjectGoalsPanel = ({ projectId }: ProjectGoalsPanelProps) => {
         { status: "completed" },
         user.id,
       );
+
+      // Import and use activityService to record this activity
+      const { activityService } = await import("@/services/activity");
+      await activityService.recordActivity({
+        user_id: user.id,
+        activity_type: "goal_completed",
+        description: `Completed goal: ${goal.title}`,
+        project_id: goal.project_id,
+        metadata: { goalTitle: goal.title, goalType: goal.goal_type },
+      });
 
       toast({
         title: "Success",

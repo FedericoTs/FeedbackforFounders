@@ -1,5 +1,6 @@
 import { supabase } from "../../supabase/supabase";
 import { gamificationService } from "./gamification";
+import { activityService } from "./activity";
 
 export interface Project {
   id: string;
@@ -662,13 +663,69 @@ export const projectService = {
         role: "owner",
       });
 
-      // Record activity
+      // Record activity in both project_activity and user_activity tables
       await supabase.from("project_activity").insert({
         project_id: data.id,
         user_id: userId,
         activity_type: "project_created",
         description: "Project created",
       });
+
+      // Record in user_activity for profile display
+      try {
+        console.log(
+          "Attempting to record project creation activity in user_activity table",
+        );
+        const activityResult = await activityService.recordActivity({
+          user_id: userId,
+          activity_type: "project_created",
+          description: `Created project: ${data.title}`,
+          points: gamificationService.getPointValues().project_created,
+          project_id: data.id,
+          metadata: { projectTitle: data.title },
+        });
+
+        if (activityResult.success) {
+          console.log(
+            "Successfully recorded project creation activity",
+            activityResult.data,
+          );
+        } else {
+          console.error(
+            "Failed to record project creation activity:",
+            activityResult.error,
+          );
+          // Try a more direct approach as a fallback
+          const fallbackResult = await supabase
+            .from("user_activity")
+            .insert({
+              user_id: userId,
+              activity_type: "project_created",
+              description: `Created project: ${data.title}`,
+              points: gamificationService.getPointValues().project_created,
+              project_id: data.id,
+            })
+            .select();
+
+          if (fallbackResult.error) {
+            console.error(
+              "Fallback activity recording also failed:",
+              fallbackResult.error,
+            );
+          } else {
+            console.log(
+              "Fallback activity recording succeeded:",
+              fallbackResult.data,
+            );
+          }
+        }
+      } catch (activityError) {
+        console.error(
+          "Exception in record project creation activity:",
+          activityError,
+        );
+        // Continue execution even if activity recording fails
+      }
 
       // Award points for creating a project
       try {
@@ -757,13 +814,22 @@ export const projectService = {
 
       if (error) throw error;
 
-      // Record activity
+      // Record activity in both project_activity and user_activity tables
       await supabase.from("project_activity").insert({
         project_id: projectId,
         user_id: userId,
         activity_type: "project_updated",
         description: "Project updated",
         metadata: { version: nextVersionNumber },
+      });
+
+      // Record in user_activity for profile display
+      await activityService.recordActivity({
+        user_id: userId,
+        activity_type: "project_updated",
+        description: `Updated project: ${data.title}`,
+        project_id: projectId,
+        metadata: { version: nextVersionNumber, projectTitle: data.title },
       });
 
       return data;
