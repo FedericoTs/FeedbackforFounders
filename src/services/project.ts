@@ -96,6 +96,65 @@ export interface PromotionStats {
   daysRemaining: number;
 }
 
+export interface ProjectGoal {
+  id: string;
+  project_id: string;
+  title: string;
+  description?: string;
+  target_value: number;
+  current_value: number;
+  goal_type: "feedback_count" | "positive_feedback" | "engagement" | "custom";
+  status: "in_progress" | "completed" | "cancelled";
+  created_at: string;
+  updated_at: string;
+  created_by: string;
+}
+
+export interface QuestionBase {
+  id: string;
+  text: string;
+  required: boolean;
+  order: number;
+}
+
+export interface TextQuestion extends QuestionBase {
+  type: "text";
+  placeholder?: string;
+}
+
+export interface MultipleChoiceQuestion extends QuestionBase {
+  type: "multiple_choice";
+  options: string[];
+  allow_multiple: boolean;
+}
+
+export interface RatingQuestion extends QuestionBase {
+  type: "rating";
+  max_rating: number;
+}
+
+export type Question = TextQuestion | MultipleChoiceQuestion | RatingQuestion;
+
+export interface ProjectQuestionnaire {
+  id: string;
+  project_id: string;
+  title: string;
+  description?: string;
+  questions: Question[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  created_by: string;
+}
+
+export interface QuestionnaireResponse {
+  id: string;
+  questionnaire_id: string;
+  user_id: string;
+  responses: Record<string, any>;
+  created_at: string;
+}
+
 export interface ProjectAnalytics {
   feedback: FeedbackStats;
   visitors: VisitorStats;
@@ -105,6 +164,327 @@ export interface ProjectAnalytics {
 }
 
 export const projectService = {
+  /**
+   * Project Goals
+   */
+  async getProjectGoals(projectId: string): Promise<ProjectGoal[]> {
+    try {
+      const { data, error } = await supabase
+        .from("project_goals")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching project goals:", error);
+        return []; // Return empty array instead of throwing
+      }
+      return data || [];
+    } catch (error) {
+      console.error("Error fetching project goals:", error);
+      return []; // Return empty array instead of throwing
+    }
+  },
+
+  async createProjectGoal(
+    goal: Omit<ProjectGoal, "id" | "created_at" | "updated_at">,
+    userId: string,
+  ): Promise<ProjectGoal> {
+    try {
+      const { data, error } = await supabase
+        .from("project_goals")
+        .insert({
+          ...goal,
+          created_by: userId,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Record activity
+      await supabase.from("project_activity").insert({
+        project_id: goal.project_id,
+        user_id: userId,
+        activity_type: "goal_created",
+        description: `New goal created: ${goal.title}`,
+      });
+
+      return data;
+    } catch (error) {
+      console.error("Error creating project goal:", error);
+      throw error;
+    }
+  },
+
+  async updateProjectGoal(
+    goalId: string,
+    updates: Partial<ProjectGoal>,
+    userId: string,
+  ): Promise<ProjectGoal> {
+    try {
+      const { data, error } = await supabase
+        .from("project_goals")
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", goalId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Record activity
+      await supabase.from("project_activity").insert({
+        project_id: data.project_id,
+        user_id: userId,
+        activity_type: "goal_updated",
+        description: `Goal updated: ${data.title}`,
+      });
+
+      return data;
+    } catch (error) {
+      console.error("Error updating project goal:", error);
+      throw error;
+    }
+  },
+
+  async deleteProjectGoal(goalId: string, userId: string): Promise<void> {
+    try {
+      // Get project_id before deleting
+      const { data: goal, error: fetchError } = await supabase
+        .from("project_goals")
+        .select("project_id, title")
+        .eq("id", goalId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const { error } = await supabase
+        .from("project_goals")
+        .delete()
+        .eq("id", goalId);
+
+      if (error) throw error;
+
+      // Record activity
+      await supabase.from("project_activity").insert({
+        project_id: goal.project_id,
+        user_id: userId,
+        activity_type: "goal_deleted",
+        description: `Goal deleted: ${goal.title}`,
+      });
+    } catch (error) {
+      console.error("Error deleting project goal:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Project Questionnaires
+   */
+  async getProjectQuestionnaires(
+    projectId: string,
+  ): Promise<ProjectQuestionnaire[]> {
+    try {
+      const { data, error } = await supabase
+        .from("project_questionnaires")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching project questionnaires:", error);
+        return []; // Return empty array instead of throwing
+      }
+      return data || [];
+    } catch (error) {
+      console.error("Error fetching project questionnaires:", error);
+      return []; // Return empty array instead of throwing
+    }
+  },
+
+  async getQuestionnaire(
+    questionnaireId: string,
+  ): Promise<ProjectQuestionnaire> {
+    try {
+      const { data, error } = await supabase
+        .from("project_questionnaires")
+        .select("*")
+        .eq("id", questionnaireId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error("Error fetching questionnaire:", error);
+      throw error;
+    }
+  },
+
+  async createQuestionnaire(
+    questionnaire: Omit<
+      ProjectQuestionnaire,
+      "id" | "created_at" | "updated_at"
+    >,
+    userId: string,
+  ): Promise<ProjectQuestionnaire> {
+    try {
+      const { data, error } = await supabase
+        .from("project_questionnaires")
+        .insert({
+          ...questionnaire,
+          created_by: userId,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Record activity
+      await supabase.from("project_activity").insert({
+        project_id: questionnaire.project_id,
+        user_id: userId,
+        activity_type: "questionnaire_created",
+        description: `New questionnaire created: ${questionnaire.title}`,
+      });
+
+      return data;
+    } catch (error) {
+      console.error("Error creating questionnaire:", error);
+      throw error;
+    }
+  },
+
+  async updateQuestionnaire(
+    questionnaireId: string,
+    updates: Partial<ProjectQuestionnaire>,
+    userId: string,
+  ): Promise<ProjectQuestionnaire> {
+    try {
+      const { data, error } = await supabase
+        .from("project_questionnaires")
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", questionnaireId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Record activity
+      await supabase.from("project_activity").insert({
+        project_id: data.project_id,
+        user_id: userId,
+        activity_type: "questionnaire_updated",
+        description: `Questionnaire updated: ${data.title}`,
+      });
+
+      return data;
+    } catch (error) {
+      console.error("Error updating questionnaire:", error);
+      throw error;
+    }
+  },
+
+  async deleteQuestionnaire(
+    questionnaireId: string,
+    userId: string,
+  ): Promise<void> {
+    try {
+      // Get project_id before deleting
+      const { data: questionnaire, error: fetchError } = await supabase
+        .from("project_questionnaires")
+        .select("project_id, title")
+        .eq("id", questionnaireId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const { error } = await supabase
+        .from("project_questionnaires")
+        .delete()
+        .eq("id", questionnaireId);
+
+      if (error) throw error;
+
+      // Record activity
+      await supabase.from("project_activity").insert({
+        project_id: questionnaire.project_id,
+        user_id: userId,
+        activity_type: "questionnaire_deleted",
+        description: `Questionnaire deleted: ${questionnaire.title}`,
+      });
+    } catch (error) {
+      console.error("Error deleting questionnaire:", error);
+      throw error;
+    }
+  },
+
+  async submitQuestionnaireResponse(
+    questionnaireId: string,
+    responses: Record<string, any>,
+    userId: string,
+  ): Promise<QuestionnaireResponse> {
+    try {
+      const { data, error } = await supabase
+        .from("questionnaire_responses")
+        .insert({
+          questionnaire_id: questionnaireId,
+          user_id: userId,
+          responses,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Get questionnaire details for activity log
+      const { data: questionnaire } = await supabase
+        .from("project_questionnaires")
+        .select("project_id, title")
+        .eq("id", questionnaireId)
+        .single();
+
+      // Record activity
+      await supabase.from("project_activity").insert({
+        project_id: questionnaire.project_id,
+        user_id: userId,
+        activity_type: "questionnaire_response",
+        description: `Response submitted for questionnaire: ${questionnaire.title}`,
+      });
+
+      return data;
+    } catch (error) {
+      console.error("Error submitting questionnaire response:", error);
+      throw error;
+    }
+  },
+
+  async getQuestionnaireResponses(
+    questionnaireId: string,
+  ): Promise<QuestionnaireResponse[]> {
+    try {
+      const { data, error } = await supabase
+        .from("questionnaire_responses")
+        .select("*")
+        .eq("questionnaire_id", questionnaireId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error("Error fetching questionnaire responses:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Fetch projects with optional filtering and sorting
+   */
   /**
    * Fetch projects with optional filtering and sorting
    */
@@ -123,11 +503,19 @@ export const projectService = {
         featured,
       } = options;
 
-      let query = supabase
+      // First, check if the tables exist by fetching a single project
+      const { data: singleProject, error: projectError } = await supabase
         .from("projects")
-        .select(
-          "*, project_feedback(count), project_feedback_sentiment(positive, negative, neutral)",
-        );
+        .select("id")
+        .limit(1);
+
+      if (projectError) {
+        console.error("Error checking projects table:", projectError);
+        return [];
+      }
+
+      // Fetch projects without joins first to avoid 406 errors
+      let query = supabase.from("projects").select("*");
 
       // Filter by user if provided
       if (userId) {
@@ -152,22 +540,61 @@ export const projectService = {
       } else if (sortBy === "updated_at") {
         query = query.order("updated_at", { ascending: false });
       } else if (sortBy === "feedback_count") {
-        query = query.order("feedback_count", { ascending: false });
+        query = query.order("updated_at", { ascending: false }); // Fallback to updated_at
       }
 
       const { data, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching projects:", error);
+        return [];
+      }
+
+      // Try to fetch feedback data separately to avoid 406 errors
+      let feedbackData = {};
+      try {
+        const { data: feedbackResults, error: feedbackError } = await supabase
+          .from("project_feedback")
+          .select("project_id, count");
+
+        if (!feedbackError && feedbackResults) {
+          feedbackData = feedbackResults.reduce((acc, item) => {
+            acc[item.project_id] = { count: item.count };
+            return acc;
+          }, {});
+        }
+      } catch (feedbackError) {
+        console.error("Error fetching feedback data:", feedbackError);
+      }
+
+      // Try to fetch sentiment data separately
+      let sentimentData = {};
+      try {
+        const { data: sentimentResults, error: sentimentError } = await supabase
+          .from("project_feedback_sentiment")
+          .select("project_id, positive, negative, neutral");
+
+        if (!sentimentError && sentimentResults) {
+          sentimentData = sentimentResults.reduce((acc, item) => {
+            acc[item.project_id] = {
+              positive: item.positive,
+              negative: item.negative,
+              neutral: item.neutral,
+            };
+            return acc;
+          }, {});
+        }
+      } catch (sentimentError) {
+        console.error("Error fetching sentiment data:", sentimentError);
+      }
 
       // Process the data to include feedback counts
       const processedData = data.map((project) => ({
         ...project,
-        feedback_count: project.project_feedback?.[0]?.count || 0,
-        positive_feedback:
-          project.project_feedback_sentiment?.[0]?.positive || 0,
-        negative_feedback:
-          project.project_feedback_sentiment?.[0]?.negative || 0,
-        neutral_feedback: project.project_feedback_sentiment?.[0]?.neutral || 0,
+        feedback_count: feedbackData[project.id]?.count || 0,
+        positive_feedback: sentimentData[project.id]?.positive || 0,
+        negative_feedback: sentimentData[project.id]?.negative || 0,
+        neutral_feedback: sentimentData[project.id]?.neutral || 0,
       }));
 
       // Apply search filter if provided
@@ -177,7 +604,8 @@ export const projectService = {
           const searchLower = searchQuery.toLowerCase();
           return (
             project.title.toLowerCase().includes(searchLower) ||
-            project.description.toLowerCase().includes(searchLower) ||
+            (project.description &&
+              project.description.toLowerCase().includes(searchLower)) ||
             (project.tags &&
               project.tags.some((tag) =>
                 tag.toLowerCase().includes(searchLower),
@@ -189,7 +617,7 @@ export const projectService = {
       return processedData;
     } catch (error) {
       console.error("Error fetching projects:", error);
-      throw error;
+      return []; // Return empty array instead of throwing
     }
   },
 

@@ -19,6 +19,8 @@ import ProjectEditDialog from "@/components/projects/ProjectEditDialog";
 import ProjectPromoteDialog from "@/components/projects/ProjectPromoteDialog";
 import ProjectCollaborationPanel from "@/components/projects/ProjectCollaborationPanel";
 import ProjectAnalyticsPanel from "@/components/projects/ProjectAnalyticsPanel";
+import ProjectGoalsPanel from "@/components/projects/ProjectGoalsPanel";
+import ProjectQuestionnairesPanel from "@/components/projects/ProjectQuestionnairesPanel";
 import { ProjectCard } from "@/components/ui/project-card";
 import {
   ArrowLeft,
@@ -66,7 +68,9 @@ const ProjectDetails = () => {
         if (
           tabFromUrl === "analytics" ||
           tabFromUrl === "collaboration" ||
-          tabFromUrl === "overview"
+          tabFromUrl === "overview" ||
+          tabFromUrl === "goals" ||
+          tabFromUrl === "questionnaires"
         ) {
           setActiveTab(tabFromUrl);
         }
@@ -321,6 +325,8 @@ const ProjectDetails = () => {
         <TabsList className="mb-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="goals">Goals</TabsTrigger>
+          <TabsTrigger value="questionnaires">Questionnaires</TabsTrigger>
           <TabsTrigger value="collaboration">Collaboration</TabsTrigger>
         </TabsList>
 
@@ -438,6 +444,14 @@ const ProjectDetails = () => {
 
         <TabsContent value="analytics" className="space-y-4">
           <ProjectAnalyticsPanel projectId={project.id} isExpanded={true} />
+        </TabsContent>
+
+        <TabsContent value="goals" className="space-y-4">
+          <ProjectGoalsPanel projectId={project.id} />
+        </TabsContent>
+
+        <TabsContent value="questionnaires" className="space-y-4">
+          <ProjectQuestionnairesPanel projectId={project.id} />
         </TabsContent>
 
         <TabsContent value="collaboration" className="space-y-4">
