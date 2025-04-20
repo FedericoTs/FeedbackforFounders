@@ -630,6 +630,17 @@ export const projectService = {
     userId: string,
   ): Promise<Project> {
     try {
+      // Check if user has reached their project limit
+      const { rewardsService } = await import("./rewards");
+      const hasReachedLimit =
+        await rewardsService.hasReachedProjectLimit(userId);
+
+      if (hasReachedLimit) {
+        throw new Error(
+          "You have reached the maximum number of active projects. Please archive or delete an existing project before creating a new one.",
+        );
+      }
+
       const { data, error } = await supabase
         .from("projects")
         .insert({
@@ -663,7 +674,7 @@ export const projectService = {
         role: "owner",
       });
 
-      // Record activity in both project_activity and user_activity tables
+      // Record activity in project_activity table
       await supabase.from("project_activity").insert({
         project_id: data.id,
         user_id: userId,
@@ -671,74 +682,21 @@ export const projectService = {
         description: "Project created",
       });
 
-      // Record in user_activity for profile display
+      // Process reward for project creation using the new rewards service
       try {
-        console.log(
-          "Attempting to record project creation activity in user_activity table",
-        );
-        const activityResult = await activityService.recordActivity({
-          user_id: userId,
-          activity_type: "project_created",
-          description: `Created project: ${data.title}`,
-          points: gamificationService.getPointValues().project_created,
-          project_id: data.id,
-          metadata: { projectTitle: data.title },
-        });
-
-        if (activityResult.success) {
-          console.log(
-            "Successfully recorded project creation activity",
-            activityResult.data,
-          );
-        } else {
-          console.error(
-            "Failed to record project creation activity:",
-            activityResult.error,
-          );
-          // Try a more direct approach as a fallback
-          const fallbackResult = await supabase
-            .from("user_activity")
-            .insert({
-              user_id: userId,
-              activity_type: "project_created",
-              description: `Created project: ${data.title}`,
-              points: gamificationService.getPointValues().project_created,
-              project_id: data.id,
-            })
-            .select();
-
-          if (fallbackResult.error) {
-            console.error(
-              "Fallback activity recording also failed:",
-              fallbackResult.error,
-            );
-          } else {
-            console.log(
-              "Fallback activity recording succeeded:",
-              fallbackResult.data,
-            );
-          }
-        }
-      } catch (activityError) {
-        console.error(
-          "Exception in record project creation activity:",
-          activityError,
-        );
-        // Continue execution even if activity recording fails
-      }
-
-      // Award points for creating a project
-      try {
-        await gamificationService.awardPoints({
+        console.log("Processing reward for project creation");
+        const rewardResult = await rewardsService.processReward({
           userId,
-          points: gamificationService.getPointValues().project_created,
           activityType: "project_created",
           description: `Created project: ${data.title}`,
-          metadata: { projectId: data.id },
+          metadata: { projectTitle: data.title },
+          projectId: data.id,
         });
-      } catch (pointsError) {
-        console.error("Error awarding points:", pointsError);
-        // Continue even if points award fails
+
+        console.log("Project creation reward result:", rewardResult);
+      } catch (rewardError) {
+        console.error("Error processing project creation reward:", rewardError);
+        // Continue execution even if reward processing fails
       }
 
       return data;
@@ -814,7 +772,7 @@ export const projectService = {
 
       if (error) throw error;
 
-      // Record activity in both project_activity and user_activity tables
+      // Record activity in project_activity table
       await supabase.from("project_activity").insert({
         project_id: projectId,
         user_id: userId,
@@ -823,14 +781,22 @@ export const projectService = {
         metadata: { version: nextVersionNumber },
       });
 
-      // Record in user_activity for profile display
-      await activityService.recordActivity({
-        user_id: userId,
-        activity_type: "project_updated",
-        description: `Updated project: ${data.title}`,
-        project_id: projectId,
-        metadata: { version: nextVersionNumber, projectTitle: data.title },
-      });
+      // Process reward for project update using the rewards service
+      try {
+        const { rewardsService } = await import("./rewards");
+        const rewardResult = await rewardsService.processReward({
+          userId,
+          activityType: "project_updated",
+          description: `Updated project: ${data.title}`,
+          metadata: { version: nextVersionNumber, projectTitle: data.title },
+          projectId,
+        });
+
+        console.log("Project update reward result:", rewardResult);
+      } catch (rewardError) {
+        console.error("Error processing project update reward:", rewardError);
+        // Continue execution even if reward processing fails
+      }
 
       return data;
     } catch (error) {

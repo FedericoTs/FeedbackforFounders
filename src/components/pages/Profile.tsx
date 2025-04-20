@@ -150,6 +150,7 @@ const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSyncingPoints, setIsSyncingPoints] = useState(false);
   const [profileData, setProfileData] = useState<ProfileResponse | null>(null);
 
   // Form state
@@ -190,123 +191,264 @@ const Profile = () => {
       } else {
         console.log(`Found ${data?.length || 0} activity records:`, data);
       }
+
+      // Also check the current user points in the users table
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("points, level, points_to_next_level")
+        .eq("id", user.id)
+        .single();
+
+      if (userError) {
+        console.error("Error querying user data:", userError);
+      } else {
+        console.log("Current user data in database:", userData);
+      }
     } catch (e) {
       console.error("Exception in direct user_activity check:", e);
     }
   };
 
-  // Fetch profile data
-  useEffect(() => {
-    const fetchProfileData = async () => {
-      try {
-        setIsLoading(true);
-        const data = await profileService.getProfile();
+  // Function to synchronize user points
+  const syncUserPoints = async () => {
+    if (!user) return;
 
-        // Ensure we have valid data with default values for missing properties
-        const validData = {
-          user: data?.user || {
-            full_name: user?.email || "",
-            email: user?.email || "",
-            level: 1,
-            points: 0,
-            points_to_next_level: 100,
-          },
-          socialLinks: Array.isArray(data?.socialLinks) ? data.socialLinks : [],
-          skills: Array.isArray(data?.skills) ? data.skills : [],
-          achievements: Array.isArray(data?.achievements)
-            ? data.achievements
-            : [],
-          activity: Array.isArray(data?.activity) ? data.activity : [],
-          stats: data?.stats || {
-            projectsCreated: 0,
-            feedbackReceived: 0,
-            feedbackGiven: 0,
-            pointsEarned: 0,
-          },
-        };
+    try {
+      setIsSyncingPoints(true);
+      toast({
+        title: "Synchronizing Points",
+        description: "Please wait while we update your points...",
+      });
 
-        console.log("Setting profile data:", validData);
-        console.log("Stats:", validData.stats);
-        console.log("Activity:", validData.activity);
-        setProfileData(validData);
+      // Calculate total points from activity records
+      const { data: activityData, error: activityError } = await supabase
+        .from("user_activity")
+        .select("points")
+        .eq("user_id", user.id);
 
-        // Initialize form data
-        const skills = validData.skills || [];
-        setFormData({
-          name: validData.user.full_name || "",
-          bio: validData.user.bio || "",
-          location: validData.user.location || "",
-          website: validData.user.website || "",
-          skills: skills,
-          _skillsInput: skills.join(", "),
-          avatar_url: validData.user.avatar_url || "",
-          banner_url: validData.user.banner_url || "",
-          socialLinks:
-            validData.socialLinks.length > 0
-              ? validData.socialLinks.map((link: any) => ({
-                  platform: link.platform,
-                  username: link.username,
-                }))
-              : [
-                  { platform: "twitter", username: "" },
-                  { platform: "github", username: "" },
-                  { platform: "linkedin", username: "" },
-                  { platform: "instagram", username: "" },
-                ],
-        });
-      } catch (error) {
-        console.error("Error fetching profile data:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load profile data. Using default values.",
-          variant: "destructive",
-        });
-
-        // Set default profile data on error
-        const defaultData = {
-          user: {
-            full_name: user?.email || "",
-            email: user?.email || "",
-            level: 1,
-            points: 0,
-            points_to_next_level: 100,
-          },
-          socialLinks: [],
-          skills: [],
-          achievements: [],
-          activity: [],
-          stats: {
-            projectsCreated: 0,
-            feedbackReceived: 0,
-            feedbackGiven: 0,
-            pointsEarned: 0,
-          },
-        };
-
-        setProfileData(defaultData);
-
-        // Initialize form with default data
-        setFormData({
-          name: defaultData.user.full_name || "",
-          bio: "",
-          location: "",
-          website: "",
-          skills: [],
-          _skillsInput: "",
-          avatar_url: "",
-          banner_url: "",
-          socialLinks: [
-            { platform: "twitter", username: "" },
-            { platform: "github", username: "" },
-            { platform: "linkedin", username: "" },
-            { platform: "instagram", username: "" },
-          ],
-        });
-      } finally {
-        setIsLoading(false);
+      if (activityError) {
+        throw new Error(
+          `Error fetching activity data: ${activityError.message}`,
+        );
       }
-    };
 
+      // Sum up all points from activities
+      const totalPoints = activityData.reduce(
+        (sum, activity) => sum + (activity.points || 0),
+        0,
+      );
+
+      // Get current user data
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("points")
+        .eq("id", user.id)
+        .single();
+
+      if (userError) {
+        throw new Error(`Error fetching user data: ${userError.message}`);
+      }
+
+      // Update user's points if different from calculated total
+      if (totalPoints !== userData.points) {
+        console.log(
+          `Updating user ${user.id} points from ${userData.points} to ${totalPoints}`,
+        );
+
+        const { error: updateError } = await supabase
+          .from("users")
+          .update({ points: totalPoints })
+          .eq("id", user.id);
+
+        if (updateError) {
+          throw new Error(`Error updating user points: ${updateError.message}`);
+        }
+
+        toast({
+          title: "Points Synchronized",
+          description: `Your points have been updated from ${userData.points} to ${totalPoints}.`,
+        });
+      } else {
+        toast({
+          title: "Points Already Synchronized",
+          description: "Your points are already up to date.",
+        });
+      }
+
+      // Refresh profile data to show updated points
+      await fetchProfileData();
+    } catch (error) {
+      console.error("Error synchronizing points:", error);
+      toast({
+        title: "Error",
+        description:
+          error.message || "Failed to synchronize points. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSyncingPoints(false);
+    }
+  };
+
+  // Fetch profile data
+  const fetchProfileData = async () => {
+    try {
+      setIsLoading(true);
+      const data = await profileService.getProfile();
+
+      // Ensure we have valid data with default values for missing properties
+      const validData = {
+        user: data?.user || {
+          full_name: user?.email || "",
+          email: user?.email || "",
+          level: 1,
+          points: 0,
+          points_to_next_level: 100,
+        },
+        socialLinks: Array.isArray(data?.socialLinks) ? data.socialLinks : [],
+        skills: Array.isArray(data?.skills) ? data.skills : [],
+        achievements: Array.isArray(data?.achievements)
+          ? data.achievements
+          : [],
+        activity: Array.isArray(data?.activity) ? data.activity : [],
+        stats: data?.stats || {
+          projectsCreated: 0,
+          feedbackReceived: 0,
+          feedbackGiven: 0,
+          pointsEarned: 0,
+        },
+      };
+
+      console.log("Setting profile data:", validData);
+      console.log("Stats:", validData.stats);
+      console.log("Activity:", validData.activity);
+
+      // Calculate total points from activity records as a source of truth
+      if (
+        user &&
+        Array.isArray(validData.activity) &&
+        validData.activity.length > 0
+      ) {
+        try {
+          // Sum up all points from activities
+          const calculatedPoints = validData.activity.reduce(
+            (sum, activity) => sum + (activity.points || 0),
+            0,
+          );
+
+          // If the calculated points differ from the user's points, update the user record
+          if (calculatedPoints !== validData.user.points) {
+            console.log(
+              `[Profile] Points mismatch detected. User record: ${validData.user.points}, Calculated: ${calculatedPoints}`,
+            );
+
+            // Update the user's points in the database
+            const { error: updateError } = await supabase
+              .from("users")
+              .update({ points: calculatedPoints })
+              .eq("id", user.id);
+
+            if (updateError) {
+              console.error(
+                "[Profile] Error updating user points:",
+                updateError,
+              );
+            } else {
+              console.log(
+                `[Profile] Updated user points to ${calculatedPoints}`,
+              );
+              // Update the local state with the corrected points
+              validData.user.points = calculatedPoints;
+            }
+          }
+        } catch (pointsError) {
+          console.error(
+            "[Profile] Error calculating total points:",
+            pointsError,
+          );
+        }
+      }
+
+      setProfileData(validData);
+
+      // Initialize form data
+      const skills = validData.skills || [];
+      setFormData({
+        name: validData.user.full_name || "",
+        bio: validData.user.bio || "",
+        location: validData.user.location || "",
+        website: validData.user.website || "",
+        skills: skills,
+        _skillsInput: skills.join(", "),
+        avatar_url: validData.user.avatar_url || "",
+        banner_url: validData.user.banner_url || "",
+        socialLinks:
+          validData.socialLinks.length > 0
+            ? validData.socialLinks.map((link: any) => ({
+                platform: link.platform,
+                username: link.username,
+              }))
+            : [
+                { platform: "twitter", username: "" },
+                { platform: "github", username: "" },
+                { platform: "linkedin", username: "" },
+                { platform: "instagram", username: "" },
+              ],
+      });
+    } catch (error) {
+      console.error("Error fetching profile data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load profile data. Using default values.",
+        variant: "destructive",
+      });
+
+      // Set default profile data on error
+      const defaultData = {
+        user: {
+          full_name: user?.email || "",
+          email: user?.email || "",
+          level: 1,
+          points: 0,
+          points_to_next_level: 100,
+        },
+        socialLinks: [],
+        skills: [],
+        achievements: [],
+        activity: [],
+        stats: {
+          projectsCreated: 0,
+          feedbackReceived: 0,
+          feedbackGiven: 0,
+          pointsEarned: 0,
+        },
+      };
+
+      setProfileData(defaultData);
+
+      // Initialize form with default data
+      setFormData({
+        name: defaultData.user.full_name || "",
+        bio: "",
+        location: "",
+        website: "",
+        skills: [],
+        _skillsInput: "",
+        avatar_url: "",
+        banner_url: "",
+        socialLinks: [
+          { platform: "twitter", username: "" },
+          { platform: "github", username: "" },
+          { platform: "linkedin", username: "" },
+          { platform: "instagram", username: "" },
+        ],
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     if (user) {
       fetchProfileData();
       // Also directly check user_activity table for debugging
@@ -987,9 +1129,25 @@ const Profile = () => {
           {/* Account Stats */}
           <Card className="bg-white dark:bg-slate-800 shadow-sm">
             <CardHeader className="pb-2">
-              <CardTitle className="text-lg font-semibold text-slate-900 dark:text-white">
-                Account Stats
-              </CardTitle>
+              <div className="flex justify-between items-center">
+                <CardTitle className="text-lg font-semibold text-slate-900 dark:text-white">
+                  Account Stats
+                </CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={syncUserPoints}
+                  disabled={isSyncingPoints}
+                  className="text-xs"
+                >
+                  {isSyncingPoints ? (
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  ) : (
+                    <Loader2 className="h-3 w-3 mr-1" />
+                  )}
+                  Sync Points
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-between items-center">

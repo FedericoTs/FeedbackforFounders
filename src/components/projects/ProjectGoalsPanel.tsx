@@ -128,15 +128,27 @@ const ProjectGoalsPanel = ({ projectId }: ProjectGoalsPanelProps) => {
         user.id,
       );
 
-      // Import and use activityService to record this activity
-      const { activityService } = await import("@/services/activity");
-      await activityService.recordActivity({
-        user_id: user.id,
-        activity_type: "goal_created",
-        description: `Created goal: ${newGoal.title} for project`,
-        project_id: projectId,
-        metadata: { goalTitle: newGoal.title, goalType: newGoal.goal_type },
-      });
+      // Process reward for goal creation
+      try {
+        const { rewardsService } = await import("@/services/rewards");
+        const rewardResult = await rewardsService.processReward({
+          userId: user.id,
+          activityType: "goal_created",
+          description: `Created goal: ${newGoal.title} for project`,
+          projectId: projectId,
+          metadata: { goalTitle: newGoal.title, goalType: newGoal.goal_type },
+        });
+
+        if (rewardResult.success && rewardResult.points > 0) {
+          toast({
+            title: "Points Earned",
+            description: rewardResult.message,
+          });
+        }
+      } catch (rewardError) {
+        console.error("Error processing goal creation reward:", rewardError);
+        // Continue execution even if reward processing fails
+      }
 
       toast({
         title: "Success",
@@ -224,15 +236,27 @@ const ProjectGoalsPanel = ({ projectId }: ProjectGoalsPanelProps) => {
         user.id,
       );
 
-      // Import and use activityService to record this activity
-      const { activityService } = await import("@/services/activity");
-      await activityService.recordActivity({
-        user_id: user.id,
-        activity_type: "goal_completed",
-        description: `Completed goal: ${goal.title}`,
-        project_id: goal.project_id,
-        metadata: { goalTitle: goal.title, goalType: goal.goal_type },
-      });
+      // Process reward for goal completion
+      try {
+        const { rewardsService } = await import("@/services/rewards");
+        const rewardResult = await rewardsService.processReward({
+          userId: user.id,
+          activityType: "goal_completed",
+          description: `Completed goal: ${goal.title}`,
+          projectId: goal.project_id,
+          metadata: { goalTitle: goal.title, goalType: goal.goal_type },
+        });
+
+        if (rewardResult.success && rewardResult.points > 0) {
+          toast({
+            title: "Points Earned",
+            description: rewardResult.message,
+          });
+        }
+      } catch (rewardError) {
+        console.error("Error processing goal completion reward:", rewardError);
+        // Continue execution even if reward processing fails
+      }
 
       toast({
         title: "Success",

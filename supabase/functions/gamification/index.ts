@@ -7,10 +7,18 @@ interface AwardPointsParams {
     | "feedback_given"
     | "feedback_received"
     | "project_created"
+    | "project_updated"
+    | "project_promoted"
     | "achievement_earned"
-    | "level_up";
+    | "level_up"
+    | "daily_login"
+    | "profile_completed"
+    | "goal_completed"
+    | "questionnaire_created"
+    | "questionnaire_response";
   description: string;
   metadata?: Record<string, any>;
+  projectId?: string;
 }
 
 const corsHeaders = {
@@ -37,7 +45,7 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     if (req.method === "POST") {
-      const { userId, points, activityType, description, metadata } =
+      const { userId, points, activityType, description, metadata, projectId } =
         (await req.json()) as AwardPointsParams;
 
       // Validate input
@@ -117,6 +125,7 @@ Deno.serve(async (req) => {
           description,
           points,
           metadata,
+          project_id: projectId,
         });
 
       if (activityError) {

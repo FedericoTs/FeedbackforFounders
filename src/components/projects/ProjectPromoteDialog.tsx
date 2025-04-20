@@ -131,31 +131,41 @@ const ProjectPromoteDialog = ({
 
       if (promotionError) throw promotionError;
 
-      // Deduct points from user
-      await gamificationService.awardPoints({
-        userId: user.id,
-        points: -promotionPoints, // Negative points for deduction
-        activityType: "project_promotion", // Using a more accurate type
-        description: `Spent ${promotionPoints} points to promote project: ${project.title}`,
-        metadata: { projectId: project.id, promotionType: audience },
-      });
-
-      // Record activity in user_activity table
-      await activityService.recordActivity({
-        user_id: user.id,
-        activity_type: "project_promotion",
-        description: `Promoted project: ${project.title} with ${promotionPoints} points`,
-        points: -promotionPoints,
-        project_id: project.id,
-        metadata: {
+      // Process reward (point deduction) for project promotion
+      try {
+        const { rewardsService } = await import("@/services/rewards");
+        const rewardResult = await rewardsService.processReward({
+          userId: user.id,
+          activityType: "project_promotion",
+          description: `Promoted project: ${project.title} with ${promotionPoints} points`,
           projectId: project.id,
-          projectTitle: project.title,
-          promotionType: audience,
-          pointsSpent: promotionPoints,
-          duration: duration,
-          estimatedReach: calculateEstimatedReach(),
-        },
-      });
+          metadata: {
+            projectId: project.id,
+            projectTitle: project.title,
+            promotionType: audience,
+            pointsSpent: promotionPoints,
+            duration: duration,
+            estimatedReach: calculateEstimatedReach(),
+          },
+        });
+
+        console.log("Project promotion reward result:", rewardResult);
+      } catch (rewardError) {
+        console.error(
+          "Error processing project promotion reward:",
+          rewardError,
+        );
+        // Continue execution even if reward processing fails
+
+        // Fallback to direct point deduction if the rewards service fails
+        await gamificationService.awardPoints({
+          userId: user.id,
+          points: -promotionPoints, // Negative points for deduction
+          activityType: "project_promotion",
+          description: `Spent ${promotionPoints} points to promote project: ${project.title}`,
+          metadata: { projectId: project.id, promotionType: audience },
+        });
+      }
 
       // Update project to featured if not already
       if (!project.featured) {
