@@ -1311,97 +1311,83 @@ const Projects = () => {
         </GradientButton>
       </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-teal-500" />
-        </div>
-      ) : (
-        <div className="space-y-6">
-          <Tabs
-            value={filter === "all" && searchQuery ? "search" : filter}
-            onValueChange={setFilter}
-            className="w-full"
-          >
-            <TabsList className="mb-4">
-              <TabsTrigger value="all">All Projects</TabsTrigger>
-              <TabsTrigger value="active">Active</TabsTrigger>
-              <TabsTrigger value="draft">Draft</TabsTrigger>
-              <TabsTrigger value="archived">Archived</TabsTrigger>
-              <TabsTrigger value="featured">Featured</TabsTrigger>
-              {searchQuery && (
-                <TabsTrigger value="search" className="hidden">
-                  Search Results
-                </TabsTrigger>
-              )}
-            </TabsList>
+      {/* Move Tabs outside of conditional rendering to prevent reloading */}
+      <Tabs
+        value={filter === "all" && searchQuery ? "search" : filter}
+        onValueChange={setFilter}
+        className="w-full"
+      >
+        <TabsList className="mb-4">
+          <TabsTrigger value="all">All Projects</TabsTrigger>
+          <TabsTrigger value="active">Active</TabsTrigger>
+          <TabsTrigger value="draft">Draft</TabsTrigger>
+          <TabsTrigger value="archived">Archived</TabsTrigger>
+          <TabsTrigger value="featured">Featured</TabsTrigger>
+          {searchQuery && (
+            <TabsTrigger value="search" className="hidden">
+              Search Results
+            </TabsTrigger>
+          )}
+        </TabsList>
 
-            {/* Conditional rendering for the tab content only */}
-            {filteredProjects.length === 0 ? (
-              <div className="text-center py-12 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-                <div className="mx-auto w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mb-4">
-                  <Image className="h-8 w-8 text-slate-400" />
-                </div>
-                <h3 className="text-lg font-medium text-slate-900 dark:text-white mb-2">
-                  No projects found
-                </h3>
-                <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-6">
-                  {searchQuery
-                    ? "No projects match your search criteria. Try a different search term."
-                    : "You haven't created any projects yet. Create your first project to start receiving feedback."}
-                </p>
-                {!searchQuery && (
-                  <Button
-                    onClick={() => {
-                      setIsCreateDialogOpen(true);
-                      setCurrentStep(1);
-                    }}
-                  >
-                    <Plus className="h-4 w-4 mr-2" /> Create New Project
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <>
-                <TabsContent value="all" className="space-y-4">
-                  {viewMode === "grid"
-                    ? renderProjectGrid()
-                    : renderProjectList()}
-                </TabsContent>
-
-                <TabsContent value="active" className="space-y-4">
-                  {viewMode === "grid"
-                    ? renderProjectGrid()
-                    : renderProjectList()}
-                </TabsContent>
-
-                <TabsContent value="draft" className="space-y-4">
-                  {viewMode === "grid"
-                    ? renderProjectGrid()
-                    : renderProjectList()}
-                </TabsContent>
-
-                <TabsContent value="archived" className="space-y-4">
-                  {viewMode === "grid"
-                    ? renderProjectGrid()
-                    : renderProjectList()}
-                </TabsContent>
-
-                <TabsContent value="featured" className="space-y-4">
-                  {viewMode === "grid"
-                    ? renderProjectGrid(featuredProjects)
-                    : renderProjectList(featuredProjects)}
-                </TabsContent>
-
-                <TabsContent value="search" className="space-y-4">
-                  {viewMode === "grid"
-                    ? renderProjectGrid()
-                    : renderProjectList()}
-                </TabsContent>
-              </>
+        {loading ? (
+          <div className="flex items-center justify-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin text-teal-500" />
+          </div>
+        ) : filteredProjects.length === 0 ? (
+          <div className="text-center py-12 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+            <div className="mx-auto w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mb-4">
+              <Image className="h-8 w-8 text-slate-400" />
+            </div>
+            <h3 className="text-lg font-medium text-slate-900 dark:text-white mb-2">
+              No projects found
+            </h3>
+            <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-6">
+              {searchQuery
+                ? "No projects match your search criteria. Try a different search term."
+                : "You haven't created any projects yet. Create your first project to start receiving feedback."}
+            </p>
+            {!searchQuery && (
+              <Button
+                onClick={() => {
+                  setIsCreateDialogOpen(true);
+                  setCurrentStep(1);
+                }}
+              >
+                <Plus className="h-4 w-4 mr-2" /> Create New Project
+              </Button>
             )}
-          </Tabs>
-        </div>
-      )}
+          </div>
+        ) : (
+          <>
+            <TabsContent value="all" className="space-y-4">
+              {viewMode === "grid" ? renderProjectGrid() : renderProjectList()}
+            </TabsContent>
+
+            <TabsContent value="active" className="space-y-4">
+              {viewMode === "grid" ? renderProjectGrid() : renderProjectList()}
+            </TabsContent>
+
+            <TabsContent value="draft" className="space-y-4">
+              {viewMode === "grid" ? renderProjectGrid() : renderProjectList()}
+            </TabsContent>
+
+            <TabsContent value="archived" className="space-y-4">
+              {viewMode === "grid" ? renderProjectGrid() : renderProjectList()}
+            </TabsContent>
+
+            <TabsContent value="featured" className="space-y-4">
+              {viewMode === "grid"
+                ? renderProjectGrid(featuredProjects)
+                : renderProjectList(featuredProjects)}
+            </TabsContent>
+
+            <TabsContent value="search" className="space-y-4">
+              {viewMode === "grid" ? renderProjectGrid() : renderProjectList()}
+            </TabsContent>
+          </>
+        )}
+      </Tabs>
 
       {renderCreateProjectDialog()}
     </div>
