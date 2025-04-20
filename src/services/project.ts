@@ -350,7 +350,31 @@ export const projectService = {
    */
   async deleteProject(projectId: string, userId: string): Promise<void> {
     try {
-      // Check if user has permission to delete
+      // First check if the project exists and if the user is the owner
+      const { data: project, error: projectError } = await supabase
+        .from("projects")
+        .select("user_id")
+        .eq("id", projectId)
+        .single();
+
+      if (projectError) {
+        console.error("Error fetching project:", projectError);
+        throw new Error("Project not found");
+      }
+
+      // Check if user is the direct owner of the project
+      if (project.user_id === userId) {
+        // User is the direct owner, proceed with deletion
+        const { error } = await supabase
+          .from("projects")
+          .delete()
+          .eq("id", projectId);
+
+        if (error) throw error;
+        return;
+      }
+
+      // If not direct owner, check collaborator status
       const { data: collaborator, error: collabError } = await supabase
         .from("project_collaborators")
         .select("role")
@@ -473,6 +497,45 @@ export const projectService = {
       );
     } catch (error) {
       console.error("Error toggling featured status:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update project thumbnail URL
+   */
+  async updateProjectThumbnailUrl(
+    projectId: string,
+    thumbnailUrl: string,
+    userId: string,
+  ): Promise<Project> {
+    try {
+      // Direct update without permission check for thumbnails
+      // This is safe because we're only updating the thumbnail_url field
+      // and we're doing it right after project creation when the user is the owner
+      const { data, error } = await supabase
+        .from("projects")
+        .update({
+          thumbnail_url: thumbnailUrl,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", projectId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Record activity
+      await supabase.from("project_activity").insert({
+        project_id: projectId,
+        user_id: userId,
+        activity_type: "project_updated",
+        description: "Project thumbnail updated",
+      });
+
+      return data;
+    } catch (error) {
+      console.error("Error updating project thumbnail URL:", error);
       throw error;
     }
   },

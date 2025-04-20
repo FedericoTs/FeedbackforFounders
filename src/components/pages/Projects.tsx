@@ -124,6 +124,11 @@ const Projects = () => {
   });
   const [currentStep, setCurrentStep] = useState(1);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [pendingFileUpload, setPendingFileUpload] = useState<{
+    file: File;
+    fileName: string;
+  } | null>(null);
+  const [createdProjectId, setCreatedProjectId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -151,6 +156,60 @@ const Projects = () => {
       recordPageView();
     }
   }, [user]);
+
+  // Handle pending file upload after project creation
+  useEffect(() => {
+    const uploadPendingFile = async () => {
+      if (pendingFileUpload && createdProjectId && user) {
+        try {
+          setIsUploading(true);
+          const { file, fileName } = pendingFileUpload;
+
+          // Upload to Supabase Storage
+          const { data, error } = await supabase.storage
+            .from("project-thumbnails")
+            .upload(fileName, file, {
+              upsert: true,
+            });
+
+          if (error) throw error;
+
+          // Get public URL
+          const { data: urlData } = supabase.storage
+            .from("project-thumbnails")
+            .getPublicUrl(fileName);
+
+          // Update the project with the thumbnail URL
+          await projectService.updateProjectThumbnailUrl(
+            createdProjectId,
+            urlData.publicUrl,
+            user.id,
+          );
+
+          toast({
+            title: "Success",
+            description: "Image uploaded and attached to project successfully",
+          });
+
+          // Clear the pending upload
+          setPendingFileUpload(null);
+          setCreatedProjectId(null);
+        } catch (error) {
+          console.error("Error uploading pending file:", error);
+          toast({
+            title: "Error",
+            description:
+              "Failed to upload image. You can add it later from the project details page.",
+            variant: "destructive",
+          });
+        } finally {
+          setIsUploading(false);
+        }
+      }
+    };
+
+    uploadPendingFile();
+  }, [pendingFileUpload, createdProjectId, user, toast]);
 
   const fetchProjects = async () => {
     try {
@@ -208,10 +267,19 @@ const Projects = () => {
         visibility: newProject.visibility,
         status: "active",
         featured: false,
-        thumbnail_url: newProject.thumbnail_url,
+        // Don't include thumbnail_url here, we'll update it after upload
       };
 
-      await projectService.createProject(projectData, user.id);
+      // Create the project first
+      const createdProject = await projectService.createProject(
+        projectData,
+        user.id,
+      );
+
+      // Store the project ID for the pending upload
+      if (previewImage && pendingFileUpload) {
+        setCreatedProjectId(createdProject.id);
+      }
 
       toast({
         title: "Success",
@@ -247,8 +315,6 @@ const Projects = () => {
     if (!file) return;
 
     try {
-      setIsUploading(true);
-
       // Create a preview URL for the image
       const previewUrl = URL.createObjectURL(file);
       setPreviewImage(previewUrl);
@@ -257,36 +323,18 @@ const Projects = () => {
       const fileExt = file.name.split(".").pop();
       const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
 
-      // Upload to Supabase Storage
-      const { data, error } = await supabase.storage
-        .from("project-thumbnails")
-        .upload(fileName, file);
-
-      if (error) throw error;
-
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from("project-thumbnails")
-        .getPublicUrl(fileName);
-
-      setNewProject((prev) => ({
-        ...prev,
-        thumbnail_url: urlData.publicUrl,
-      }));
-
-      toast({
-        title: "Success",
-        description: "Image uploaded successfully",
+      // Store the file information for later upload
+      setPendingFileUpload({
+        file,
+        fileName,
       });
     } catch (error) {
-      console.error("Error uploading file:", error);
+      console.error("Error preparing file upload:", error);
       toast({
         title: "Error",
-        description: "Failed to upload image. Please try again.",
+        description: "Failed to prepare image. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setIsUploading(false);
     }
   };
 
@@ -306,7 +354,10 @@ const Projects = () => {
       console.error("Error deleting project:", error);
       toast({
         title: "Error",
-        description: "Failed to delete project. Please try again.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to delete project. Please try again.",
         variant: "destructive",
       });
     }
@@ -520,19 +571,7 @@ const Projects = () => {
                           </>
                         )}
                       </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handleToggleFeatured(project)}
-                      >
-                        {project.featured ? (
-                          <>
-                            <Star className="h-4 w-4 mr-2" /> Unfeature
-                          </>
-                        ) : (
-                          <>
-                            <Star className="h-4 w-4 mr-2" /> Feature
-                          </>
-                        )}
-                      </DropdownMenuItem>
+
                       <DropdownMenuItem
                         onClick={() => handleDuplicateProject(project)}
                       >
@@ -791,19 +830,7 @@ const Projects = () => {
                               </>
                             )}
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleToggleFeatured(project)}
-                          >
-                            {project.featured ? (
-                              <>
-                                <Star className="h-4 w-4 mr-2" /> Unfeature
-                              </>
-                            ) : (
-                              <>
-                                <Star className="h-4 w-4 mr-2" /> Feature
-                              </>
-                            )}
-                          </DropdownMenuItem>
+
                           <DropdownMenuItem
                             onClick={() => handleDuplicateProject(project)}
                           >
@@ -1137,7 +1164,7 @@ const Projects = () => {
                           className="absolute top-2 right-2 h-8 w-8 bg-white/80 hover:bg-white"
                           onClick={() => {
                             setPreviewImage(null);
-                            setNewProject({ ...newProject, thumbnail_url: "" });
+                            setPendingFileUpload(null);
                           }}
                         >
                           <X className="h-4 w-4" />

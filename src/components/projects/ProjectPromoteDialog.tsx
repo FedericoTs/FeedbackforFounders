@@ -207,11 +207,22 @@ const ProjectPromoteDialog = ({
               </div>
               <div className="flex justify-between">
                 <span>After promotion:</span>
-                <span className="font-medium">
+                <span
+                  className={`font-medium ${userPoints < promotionPoints ? "text-red-500" : ""}`}
+                >
                   {userPoints - promotionPoints} points
                 </span>
               </div>
             </div>
+            {userPoints < promotionPoints && (
+              <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
+                <p className="font-medium">Insufficient points balance</p>
+                <p className="text-xs mt-1">
+                  You need {promotionPoints - userPoints} more points to promote
+                  this project.
+                </p>
+              </div>
+            )}
           </div>
 
           <Separator />
@@ -221,29 +232,29 @@ const ProjectPromoteDialog = ({
             <RadioGroup
               value={String(duration)}
               onValueChange={(value) => setDuration(parseInt(value))}
-              className="flex flex-col space-y-1"
+              className="grid grid-cols-2 gap-2"
             >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="3" id="duration-3" />
-                <Label htmlFor="duration-3" className="cursor-pointer">
+                <Label htmlFor="duration-3" className="cursor-pointer text-sm">
                   3 days (30% discount)
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="7" id="duration-7" />
-                <Label htmlFor="duration-7" className="cursor-pointer">
+                <Label htmlFor="duration-7" className="cursor-pointer text-sm">
                   7 days (standard)
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="14" id="duration-14" />
-                <Label htmlFor="duration-14" className="cursor-pointer">
+                <Label htmlFor="duration-14" className="cursor-pointer text-sm">
                   14 days (20% more reach)
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="30" id="duration-30" />
-                <Label htmlFor="duration-30" className="cursor-pointer">
+                <Label htmlFor="duration-30" className="cursor-pointer text-sm">
                   30 days (50% more reach)
                 </Label>
               </div>
