@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../../../supabase/auth";
 import { supabase } from "../../../supabase/supabase";
+import { projectService } from "@/services/project";
 import {
   Card,
   CardContent,
@@ -56,6 +57,7 @@ import {
 import {
   Archive,
   ArrowUpDown,
+  BarChart2,
   Check,
   Copy,
   Edit,
@@ -73,9 +75,11 @@ import {
   Star,
   Trash2,
   Upload,
+  Users,
   X,
 } from "lucide-react";
 import { GradientButton } from "@/components/ui/design-system";
+import { useNavigate } from "react-router-dom";
 
 interface Project {
   id: string;
@@ -100,6 +104,7 @@ interface Project {
 const Projects = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -126,48 +131,39 @@ const Projects = () => {
     }
   }, [user, sortBy, filter]);
 
+  // Track page view for analytics
+  useEffect(() => {
+    if (user) {
+      // Record page view in project_activity
+      const recordPageView = async () => {
+        try {
+          await supabase.from("project_activity").insert({
+            project_id: null, // No specific project
+            user_id: user.id,
+            activity_type: "page_view",
+            description: "Projects page viewed",
+          });
+        } catch (error) {
+          console.error("Error recording page view:", error);
+        }
+      };
+
+      recordPageView();
+    }
+  }, [user]);
+
   const fetchProjects = async () => {
     try {
       setLoading(true);
-      let query = supabase
-        .from("projects")
-        .select(
-          "*, project_feedback(count), project_feedback_sentiment(positive, negative, neutral)",
-        )
-        .eq("user_id", user?.id);
 
-      // Apply filters
-      if (filter !== "all") {
-        query = query.eq("status", filter);
-      }
+      const projectData = await projectService.fetchProjects({
+        userId: user?.id,
+        filter,
+        sortBy,
+        searchQuery: searchQuery,
+      });
 
-      // Apply sorting
-      if (sortBy === "title") {
-        query = query.order("title", { ascending: true });
-      } else if (sortBy === "created_at") {
-        query = query.order("created_at", { ascending: false });
-      } else if (sortBy === "updated_at") {
-        query = query.order("updated_at", { ascending: false });
-      } else if (sortBy === "feedback_count") {
-        query = query.order("feedback_count", { ascending: false });
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-
-      // Process the data to include feedback counts
-      const processedData = data.map((project) => ({
-        ...project,
-        feedback_count: project.project_feedback?.[0]?.count || 0,
-        positive_feedback:
-          project.project_feedback_sentiment?.[0]?.positive || 0,
-        negative_feedback:
-          project.project_feedback_sentiment?.[0]?.negative || 0,
-        neutral_feedback: project.project_feedback_sentiment?.[0]?.neutral || 0,
-      }));
-
-      setProjects(processedData);
+      setProjects(projectData);
     } catch (error) {
       console.error("Error fetching projects:", error);
       toast({
@@ -191,25 +187,31 @@ const Projects = () => {
         return;
       }
 
+      if (!user) {
+        toast({
+          title: "Error",
+          description: "You must be logged in to create a project",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const projectData = {
         title: newProject.title,
         description: newProject.description,
         url: newProject.url,
         category: newProject.category,
-        tags: newProject.tags.split(",").map((tag) => tag.trim()),
+        tags: newProject.tags
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter(Boolean),
         visibility: newProject.visibility,
         status: "active",
         featured: false,
-        user_id: user?.id,
         thumbnail_url: newProject.thumbnail_url,
       };
 
-      const { data, error } = await supabase
-        .from("projects")
-        .insert(projectData)
-        .select();
-
-      if (error) throw error;
+      await projectService.createProject(projectData, user.id);
 
       toast({
         title: "Success",
@@ -290,12 +292,9 @@ const Projects = () => {
 
   const handleDeleteProject = async (projectId: string) => {
     try {
-      const { error } = await supabase
-        .from("projects")
-        .delete()
-        .eq("id", projectId);
+      if (!user) return;
 
-      if (error) throw error;
+      await projectService.deleteProject(projectId, user.id);
 
       toast({
         title: "Success",
@@ -315,33 +314,9 @@ const Projects = () => {
 
   const handleDuplicateProject = async (project: Project) => {
     try {
-      // Extract only the fields that exist in the projects table
-      // Remove derived fields and those that don't exist in the table schema
-      const {
-        id,
-        created_at,
-        updated_at,
-        feedback_count,
-        positive_feedback,
-        negative_feedback,
-        neutral_feedback,
-        project_feedback,
-        project_feedback_sentiment,
-        ...projectData
-      } = project;
+      if (!user) return;
 
-      const duplicatedProject = {
-        ...projectData,
-        title: `${project.title} (Copy)`,
-        featured: false,
-      };
-
-      const { data, error } = await supabase
-        .from("projects")
-        .insert(duplicatedProject)
-        .select();
-
-      if (error) throw error;
+      await projectService.duplicateProject(project.id, user.id);
 
       toast({
         title: "Success",
@@ -361,18 +336,16 @@ const Projects = () => {
 
   const handleToggleVisibility = async (project: Project) => {
     try {
-      const newVisibility =
-        project.visibility === "public" ? "private" : "public";
-      const { error } = await supabase
-        .from("projects")
-        .update({ visibility: newVisibility })
-        .eq("id", project.id);
+      if (!user) return;
 
-      if (error) throw error;
+      const updatedProject = await projectService.toggleVisibility(
+        project.id,
+        user.id,
+      );
 
       toast({
         title: "Success",
-        description: `Project is now ${newVisibility}`,
+        description: `Project is now ${updatedProject.visibility}`,
       });
 
       fetchProjects();
@@ -391,12 +364,9 @@ const Projects = () => {
     newStatus: "active" | "archived" | "draft",
   ) => {
     try {
-      const { error } = await supabase
-        .from("projects")
-        .update({ status: newStatus })
-        .eq("id", project.id);
+      if (!user) return;
 
-      if (error) throw error;
+      await projectService.updateStatus(project.id, newStatus, user.id);
 
       toast({
         title: "Success",
@@ -416,12 +386,12 @@ const Projects = () => {
 
   const handleToggleFeatured = async (project: Project) => {
     try {
-      const { error } = await supabase
-        .from("projects")
-        .update({ featured: !project.featured })
-        .eq("id", project.id);
+      if (!user) return;
 
-      if (error) throw error;
+      const updatedProject = await projectService.toggleFeatured(
+        project.id,
+        user.id,
+      );
 
       toast({
         title: "Success",
@@ -656,13 +626,12 @@ const Projects = () => {
                   </div>
                 )}
               </CardContent>
-              <CardFooter className="border-t pt-4 flex justify-between">
-                <Button variant="outline" size="sm">
-                  View Details
-                </Button>
-                <div className="flex items-center space-x-2">
+              <CardContent className="pt-0 pb-2">
+                <div className="flex items-center space-x-2 text-sm text-slate-500">
+                  <MessageSquare className="h-4 w-4" />
+                  <span>{project.feedback_count || 0} feedback</span>
                   {project.feedback_count > 0 && (
-                    <div className="flex items-center space-x-1">
+                    <div className="flex items-center space-x-1 ml-2">
                       <span
                         className="h-2 w-2 rounded-full bg-emerald-500"
                         title="Positive feedback"
@@ -679,6 +648,43 @@ const Projects = () => {
                       </span>
                     </div>
                   )}
+                </div>
+              </CardContent>
+              <CardFooter className="border-t pt-4 flex justify-between gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(`/dashboard/projects/${project.id}`)}
+                >
+                  <Eye className="h-4 w-4 mr-2" /> View Details
+                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-slate-600 hover:text-slate-900"
+                    onClick={() =>
+                      navigate(
+                        `/dashboard/projects/${project.id}?tab=analytics`,
+                      )
+                    }
+                    title="View Analytics"
+                  >
+                    <BarChart2 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-slate-600 hover:text-slate-900"
+                    onClick={() =>
+                      navigate(
+                        `/dashboard/projects/${project.id}?tab=collaboration`,
+                      )
+                    }
+                    title="Manage Collaborators"
+                  >
+                    <Users className="h-4 w-4" />
+                  </Button>
                 </div>
               </CardFooter>
             </Card>
@@ -916,9 +922,43 @@ const Projects = () => {
                           </span>
                         </div>
                       )}
-                      <Button variant="outline" size="sm">
-                        View Details
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            navigate(`/dashboard/projects/${project.id}`)
+                          }
+                        >
+                          <Eye className="h-4 w-4 mr-2" /> View Details
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-slate-600 hover:text-slate-900"
+                          onClick={() =>
+                            navigate(
+                              `/dashboard/projects/${project.id}?tab=analytics`,
+                            )
+                          }
+                          title="View Analytics"
+                        >
+                          <BarChart2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-slate-600 hover:text-slate-900"
+                          onClick={() =>
+                            navigate(
+                              `/dashboard/projects/${project.id}?tab=collaboration`,
+                            )
+                          }
+                          title="Manage Collaborators"
+                        >
+                          <Users className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>
