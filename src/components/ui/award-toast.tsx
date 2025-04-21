@@ -1,30 +1,23 @@
-import React from "react";
+import * as React from "react";
+import { cva, type VariantProps } from "class-variance-authority";
+import { X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Award, Star, Zap, TrendingUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Award, Star, Zap, Trophy } from "lucide-react";
-import { cva } from "class-variance-authority";
 
-interface AwardToastProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  title: string;
-  description: string;
-  points: number;
-  variant?: "default" | "achievement" | "streak" | "level";
-}
-
-const toastVariants = cva(
-  "fixed z-50 flex items-center gap-3 p-4 rounded-lg shadow-lg border overflow-hidden",
+const awardToastVariants = cva(
+  "group fixed flex w-full max-w-sm items-center justify-between space-x-4 overflow-hidden rounded-lg border p-6 pr-8 shadow-lg transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[swipe=move]:transition-none data-[state=open]:animate-in data-[state=closed]:animate-out data-[swipe=end]:animate-out data-[state=closed]:fade-out-80 data-[state=closed]:slide-out-to-right-full data-[state=open]:slide-in-from-top-full",
   {
     variants: {
       variant: {
         default:
-          "bg-gradient-to-r from-teal-500 to-emerald-500 border-teal-600 text-white",
+          "border-slate-200 bg-white text-slate-950 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-50",
         achievement:
-          "bg-gradient-to-r from-amber-500 to-yellow-500 border-amber-600 text-white",
+          "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800/30 dark:bg-amber-900/20 dark:text-amber-50",
         streak:
-          "bg-gradient-to-r from-blue-500 to-indigo-500 border-blue-600 text-white",
+          "border-blue-200 bg-blue-50 text-blue-900 dark:border-blue-800/30 dark:bg-blue-900/20 dark:text-blue-50",
         level:
-          "bg-gradient-to-r from-purple-500 to-pink-500 border-purple-600 text-white",
+          "border-purple-200 bg-purple-50 text-purple-900 dark:border-purple-800/30 dark:bg-purple-900/20 dark:text-purple-50",
       },
     },
     defaultVariants: {
@@ -33,111 +26,139 @@ const toastVariants = cva(
   },
 );
 
-const iconMap = {
-  default: Zap,
-  achievement: Trophy,
-  streak: Star,
-  level: Award,
-};
+const iconVariants = cva(
+  "h-10 w-10 rounded-full flex items-center justify-center",
+  {
+    variants: {
+      variant: {
+        default:
+          "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-50",
+        achievement:
+          "bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-50",
+        streak:
+          "bg-blue-100 text-blue-900 dark:bg-blue-900/30 dark:text-blue-50",
+        level:
+          "bg-purple-100 text-purple-900 dark:bg-purple-900/30 dark:text-purple-50",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+    },
+  },
+);
 
-const AwardToast = ({
-  open,
-  onOpenChange,
-  title,
-  description,
-  points,
-  variant = "default",
-}: AwardToastProps) => {
-  console.log("AwardToast rendered with props:", {
-    open,
-    title,
-    description,
-    points,
-    variant,
-  });
-  const IconComponent = iconMap[variant];
+const pointsVariants = cva("text-sm font-medium", {
+  variants: {
+    variant: {
+      default: "text-slate-900 dark:text-slate-50",
+      achievement: "text-amber-900 dark:text-amber-50",
+      streak: "text-blue-900 dark:text-blue-50",
+      level: "text-purple-900 dark:text-purple-50",
+    },
+  },
+  defaultVariants: {
+    variant: "default",
+  },
+});
 
-  React.useEffect(() => {
-    if (open) {
-      const timer = setTimeout(() => {
-        onOpenChange(false);
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [open, onOpenChange]);
+interface AwardToastProps
+  extends React.HTMLAttributes<HTMLDivElement>,
+    VariantProps<typeof awardToastVariants> {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  title: string;
+  description: string;
+  points: number;
+}
 
-  return (
-    <AnimatePresence>
-      {open && (
-        <motion.div
-          className={toastVariants({ variant })}
-          style={{ top: "1rem", right: "1rem", maxWidth: "calc(100% - 2rem)" }}
-          initial={{ opacity: 0, y: -50, scale: 0.8 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -20, scale: 0.9 }}
-          transition={{ type: "spring", stiffness: 300, damping: 20 }}
-        >
-          <div className="relative">
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.2, type: "spring" }}
-              className="p-2 rounded-full bg-white/20"
-            >
-              <IconComponent className="h-6 w-6 text-white" />
-            </motion.div>
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{
-                scale: [1, 1.5, 1],
-                rotate: [0, 10, -10, 0],
-              }}
-              transition={{ delay: 0.3, duration: 0.5 }}
-              className="absolute -top-1 -right-1 bg-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center text-teal-600"
-            >
-              +{points}
-            </motion.div>
-          </div>
+const AwardToast = React.forwardRef<HTMLDivElement, AwardToastProps>(
+  (
+    {
+      className,
+      variant,
+      open,
+      onOpenChange,
+      title,
+      description,
+      points,
+      ...props
+    },
+    ref,
+  ) => {
+    const [isVisible, setIsVisible] = React.useState(open);
 
-          <div className="flex-1">
-            <motion.h3
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 }}
-              className="font-bold text-white"
-            >
-              {title}
-            </motion.h3>
-            <motion.p
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2 }}
-              className="text-sm text-white/90"
-            >
-              {description}
-            </motion.p>
-          </div>
+    React.useEffect(() => {
+      setIsVisible(open);
+      if (open) {
+        const timer = setTimeout(() => {
+          setIsVisible(false);
+          onOpenChange?.(false);
+        }, 5000);
+        return () => clearTimeout(timer);
+      }
+    }, [open, onOpenChange]);
 
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={() => onOpenChange(false)}
-            className="text-white/80 hover:text-white p-1 rounded-full"
-            aria-label="Close toast"
-          >
-            ×
-          </motion.button>
+    const handleClose = () => {
+      setIsVisible(false);
+      onOpenChange?.(false);
+    };
 
+    const getIcon = () => {
+      switch (variant) {
+        case "achievement":
+          return <Star className="h-6 w-6" />;
+        case "streak":
+          return <Zap className="h-6 w-6" />;
+        case "level":
+          return <TrendingUp className="h-6 w-6" />;
+        default:
+          return <Award className="h-6 w-6" />;
+      }
+    };
+
+    return (
+      <AnimatePresence>
+        {isVisible && (
           <motion.div
-            initial={{ width: "100%" }}
-            animate={{ width: "0%" }}
-            transition={{ duration: 5, ease: "linear" }}
-            className="absolute bottom-0 left-0 h-1 bg-white/30"
-          />
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-};
+            ref={ref}
+            initial={{ opacity: 0, y: -50, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+            className={cn(
+              awardToastVariants({ variant }),
+              "z-50 top-4 right-4",
+              className,
+            )}
+            {...props}
+          >
+            <div className="flex items-center gap-4">
+              <div className={cn(iconVariants({ variant }))}>{getIcon()}</div>
+              <div className="grid gap-1">
+                <div className="flex items-center">
+                  <h4 className="font-semibold text-base">{title}</h4>
+                  <div className="ml-2 flex items-center">
+                    <span className={cn(pointsVariants({ variant }))}>
+                      +{points}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-sm opacity-90">{description}</p>
+              </div>
+            </div>
+            <button
+              onClick={handleClose}
+              className="absolute right-2 top-2 rounded-md p-1 text-slate-500 opacity-70 transition-opacity hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 group-hover:opacity-100 dark:text-slate-400"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    );
+  },
+);
+
+AwardToast.displayName = "AwardToast";
 
 export { AwardToast };

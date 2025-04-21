@@ -6,6 +6,8 @@ import SignUpForm from "./components/auth/SignUpForm";
 import Dashboard from "./components/pages/Dashboard";
 import Discovery from "./components/pages/Discovery";
 import FeedbackInterface from "./components/pages/FeedbackInterface";
+import FeedbackPage from "./components/pages/FeedbackPage";
+import FeedbackVisualization from "./components/pages/FeedbackVisualization";
 import Analytics from "./components/pages/Analytics";
 import Projects from "./components/pages/Projects";
 import ProjectDetails from "./components/pages/ProjectDetails";
@@ -59,6 +61,11 @@ function AppRoutes() {
           <Route index element={<Dashboard />} />
           <Route path="discovery" element={<Discovery />} />
           <Route path="feedback" element={<FeedbackInterface />} />
+          <Route path="feedback/:projectId" element={<FeedbackPage />} />
+          <Route
+            path="feedback/:projectId/visualize"
+            element={<FeedbackVisualization />}
+          />
           <Route path="analytics" element={<Analytics />} />
           <Route path="projects" element={<Projects />} />
           <Route path="projects/:projectId" element={<ProjectDetails />} />
