@@ -38,7 +38,8 @@ export const gamificationService = {
     console.log("[Gamification Service] Awarding points:", params);
 
     try {
-      // First check if an activity record already exists to prevent duplicates
+      // Check if an activity record already exists, but don't make assumptions yet
+      let existingActivityFound = false;
       if (params.projectId) {
         const { data: existingActivity, error: checkError } = await supabase
           .from("user_activity")
@@ -50,9 +51,10 @@ export const gamificationService = {
 
         if (!checkError && existingActivity && existingActivity.length > 0) {
           console.log(
-            `[Gamification Service] Activity ${params.activityType} already recorded for project ${params.projectId}, skipping duplicate activity recording`,
+            `[Gamification Service] Activity ${params.activityType} may already exist for project ${params.projectId}, will verify after processing`,
           );
-          // We'll still update the points, but won't create a new activity record
+          existingActivityFound = true;
+          // We'll still update the points, and verify activity recording later
         }
       }
 

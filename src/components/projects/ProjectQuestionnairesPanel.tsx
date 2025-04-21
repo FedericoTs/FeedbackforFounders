@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "../../../supabase/auth";
+import { supabase } from "../../../supabase/supabase";
 import {
   projectService,
   ProjectQuestionnaire,
@@ -353,18 +354,39 @@ const ProjectQuestionnairesPanel = ({
         user.id,
       );
 
-      // Import and use activityService to record this activity
-      const { activityService } = await import("@/services/activity");
-      await activityService.recordActivity({
-        user_id: user.id,
-        activity_type: "questionnaire_created",
-        description: `Created questionnaire: ${newQuestionnaire.title}`,
-        project_id: projectId,
-        metadata: {
-          questionnaireTitle: newQuestionnaire.title,
-          questionCount: newQuestionnaire.questions?.length || 0,
-        },
-      });
+      // Import and use rewardsService to process the reward
+      const { rewardsService } = await import("@/services/rewards");
+
+      // First, ensure we don't have a duplicate activity record
+      const { data: existingActivity } = await supabase
+        .from("user_activity")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("activity_type", "questionnaire_created")
+        .eq("project_id", projectId)
+        .limit(1);
+
+      // Only process reward if no existing activity found
+      if (!existingActivity || existingActivity.length === 0) {
+        console.log(
+          "Processing questionnaire creation reward - no existing activity found",
+        );
+        const rewardResult = await rewardsService.processReward({
+          userId: user.id,
+          activityType: "questionnaire_created",
+          description: `Created questionnaire: ${newQuestionnaire.title}`,
+          projectId: projectId,
+          metadata: {
+            questionnaireTitle: newQuestionnaire.title,
+            questionCount: newQuestionnaire.questions?.length || 0,
+          },
+          skipActivityRecord: false, // Explicitly set to false to ensure activity is recorded
+        });
+
+        console.log("Questionnaire reward result:", rewardResult);
+      } else {
+        console.log("Skipping questionnaire reward - activity already exists");
+      }
 
       toast({
         title: "Success",

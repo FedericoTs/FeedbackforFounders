@@ -241,7 +241,9 @@ export const rewardsService = {
       const rule = rules[activityType];
       let activityRecorded = false;
 
-      // First check if an activity record already exists to prevent duplicates
+      // We'll check for duplicates, but we won't set activityRecorded=true yet
+      // This prevents the race condition where we think an activity is recorded when it isn't
+      let existingActivityFound = false;
       if (!skipActivityRecord && projectId) {
         const { data: existingActivity, error: checkError } = await supabase
           .from("user_activity")
@@ -253,10 +255,10 @@ export const rewardsService = {
 
         if (!checkError && existingActivity && existingActivity.length > 0) {
           console.log(
-            `[Rewards Service] Activity ${activityType} already recorded for project ${projectId}, skipping duplicate`,
+            `[Rewards Service] Activity ${activityType} already exists for project ${projectId}, will verify after processing`,
           );
-          // Activity already exists, but we'll still process the points
-          activityRecorded = true;
+          existingActivityFound = true;
+          // We'll verify this again after processing the reward
         }
       }
 
@@ -387,11 +389,13 @@ export const rewardsService = {
         projectId, // Pass projectId to gamificationService
       });
 
-      // Record the activity if it hasn't been recorded yet and we're not skipping it
-      if (!skipActivityRecord && !activityRecorded) {
+      // Record the activity if we're not skipping it and it doesn't already exist
+      if (!skipActivityRecord) {
         // Double-check for existing activity to prevent duplicates
-        let existingActivity = false;
-        if (projectId) {
+        let existingActivity = existingActivityFound; // Use our previous check result
+
+        // If we didn't find an existing activity before, check again to be sure
+        if (!existingActivity && projectId) {
           const { data: existingData } = await supabase
             .from("user_activity")
             .select("id")
