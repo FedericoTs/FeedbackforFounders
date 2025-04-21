@@ -641,6 +641,7 @@ export const projectService = {
         );
       }
 
+      // Step 1: Create the project record
       const { data, error } = await supabase
         .from("projects")
         .insert({
@@ -654,49 +655,208 @@ export const projectService = {
 
       if (error) throw error;
 
-      // Initialize feedback counters
-      await supabase.from("project_feedback").insert({
-        project_id: data.id,
-        count: 0,
-      });
+      // Step 2: Initialize related records in parallel with error handling
+      const initializationPromises = [
+        // Initialize feedback counters
+        supabase
+          .from("project_feedback")
+          .insert({
+            project_id: data.id,
+            count: 0,
+          })
+          .then((result) => {
+            if (result.error) {
+              console.error(
+                "Error initializing project_feedback:",
+                result.error,
+              );
+            }
+            return result;
+          }),
 
-      await supabase.from("project_feedback_sentiment").insert({
-        project_id: data.id,
-        positive: 0,
-        negative: 0,
-        neutral: 0,
-      });
+        // Initialize sentiment counters
+        supabase
+          .from("project_feedback_sentiment")
+          .insert({
+            project_id: data.id,
+            positive: 0,
+            negative: 0,
+            neutral: 0,
+          })
+          .then((result) => {
+            if (result.error) {
+              console.error(
+                "Error initializing project_feedback_sentiment:",
+                result.error,
+              );
+            }
+            return result;
+          }),
 
-      // Add owner as first collaborator
-      await supabase.from("project_collaborators").insert({
-        project_id: data.id,
-        user_id: userId,
-        role: "owner",
-      });
+        // Add owner as first collaborator
+        supabase
+          .from("project_collaborators")
+          .insert({
+            project_id: data.id,
+            user_id: userId,
+            role: "owner",
+          })
+          .then((result) => {
+            if (result.error) {
+              console.error("Error adding project collaborator:", result.error);
+              // If this fails, try a direct approach with RLS bypass
+              return supabase
+                .rpc("add_project_owner", {
+                  p_project_id: data.id,
+                  p_user_id: userId,
+                })
+                .catch((rpcError) => {
+                  console.error(
+                    "Fallback RPC for adding owner also failed:",
+                    rpcError,
+                  );
+                });
+            }
+            return result;
+          }),
 
-      // Record activity in project_activity table
-      await supabase.from("project_activity").insert({
-        project_id: data.id,
-        user_id: userId,
-        activity_type: "project_created",
-        description: "Project created",
-      });
+        // Record activity in project_activity table
+        supabase
+          .from("project_activity")
+          .insert({
+            project_id: data.id,
+            user_id: userId,
+            activity_type: "project_created",
+            description: "Project created",
+          })
+          .then((result) => {
+            if (result.error) {
+              console.error("Error recording project activity:", result.error);
+            }
+            return result;
+          }),
+      ];
 
-      // Process reward for project creation using the new rewards service
+      // Wait for all initialization tasks to complete
+      await Promise.allSettled(initializationPromises);
+
+      // Step 3: Record user activity and award points with improved duplicate prevention
       try {
         console.log("Processing reward for project creation");
-        const rewardResult = await rewardsService.processReward({
-          userId,
-          activityType: "project_created",
-          description: `Created project: ${data.title}`,
-          metadata: { projectTitle: data.title },
-          projectId: data.id,
-        });
+
+        // First check if an activity record already exists for this project creation
+        const { data: existingActivity, error: checkError } = await supabase
+          .from("user_activity")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("activity_type", "project_created")
+          .eq("project_id", data.id)
+          .limit(1);
+
+        if (!checkError && existingActivity && existingActivity.length > 0) {
+          console.log(
+            "Activity already recorded for this project, skipping reward processing",
+          );
+          return data;
+        }
+
+        // Process the reward with the edge function
+        // Important: We're using a single approach to record the activity
+        // The edge function will handle the activity recording
+        const rewardResult = await rewardsService
+          .processReward({
+            userId,
+            activityType: "project_created",
+            description: `Created project: ${data.title}`,
+            metadata: { projectTitle: data.title },
+            projectId: data.id,
+            // Don't skip activity recording in the edge function
+            skipActivityRecord: false,
+          })
+          .catch(async (edgeFunctionError) => {
+            console.error(
+              "Edge function error, using direct activity recording fallback:",
+              edgeFunctionError,
+            );
+
+            // Check again if activity was recorded during the edge function attempt
+            const { data: doubleCheckActivity } = await supabase
+              .from("user_activity")
+              .select("id")
+              .eq("user_id", userId)
+              .eq("activity_type", "project_created")
+              .eq("project_id", data.id)
+              .limit(1);
+
+            if (doubleCheckActivity && doubleCheckActivity.length > 0) {
+              console.log(
+                "Activity was already recorded by edge function, skipping fallback",
+              );
+              return {
+                success: true,
+                points: 20,
+                message: "Points already awarded by edge function",
+                activityRecorded: true,
+              };
+            }
+
+            // Fallback: Directly record activity in user_activity table
+            const { activityService } = await import("./activity");
+            const activityResult = await activityService.recordActivity({
+              user_id: userId,
+              activity_type: "project_created",
+              description: `Created project: ${data.title}`,
+              points: 20, // Default points for project creation
+              metadata: { projectTitle: data.title },
+              project_id: data.id,
+            });
+
+            // Fallback: Directly update user points
+            if (activityResult.success) {
+              try {
+                // Get current user data
+                const { data: userData } = await supabase
+                  .from("users")
+                  .select("points")
+                  .eq("id", userId)
+                  .single();
+
+                if (userData) {
+                  // Update points directly
+                  await supabase
+                    .from("users")
+                    .update({ points: (userData.points || 0) + 20 })
+                    .eq("id", userId);
+
+                  return {
+                    success: true,
+                    points: 20,
+                    message: "Points awarded via fallback mechanism",
+                    activityRecorded: true,
+                  };
+                }
+              } catch (pointsUpdateError) {
+                console.error(
+                  "Error in fallback points update:",
+                  pointsUpdateError,
+                );
+              }
+            }
+
+            return {
+              success: activityResult.success,
+              points: activityResult.success ? 20 : 0,
+              message: activityResult.success
+                ? "Points awarded via fallback mechanism"
+                : "Failed to award points",
+              activityRecorded: activityResult.success,
+            };
+          });
 
         console.log("Project creation reward result:", rewardResult);
       } catch (rewardError) {
-        console.error("Error processing project creation reward:", rewardError);
-        // Continue execution even if reward processing fails
+        console.error("All reward processing methods failed:", rewardError);
+        // Continue execution even if all reward processing methods fail
       }
 
       return data;

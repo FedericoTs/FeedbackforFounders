@@ -1,24 +1,205 @@
 import { supabase } from "../../supabase/supabase";
 
+/**
+ * Generic interface for activity metadata
+ * This allows for type-safe metadata for different activity types
+ */
+export interface BaseActivityMetadata {
+  timestamp?: string; // ISO string timestamp when the activity occurred
+}
+
+export interface ProjectActivityMetadata extends BaseActivityMetadata {
+  projectId: string;
+  projectTitle: string;
+  version?: number;
+}
+
+export interface GoalActivityMetadata extends BaseActivityMetadata {
+  projectId: string;
+  goalId: string;
+  goalTitle: string;
+}
+
+export interface QuestionnaireActivityMetadata extends BaseActivityMetadata {
+  projectId: string;
+  questionnaireId: string;
+  questionnaireTitle: string;
+}
+
+export interface FeedbackActivityMetadata extends BaseActivityMetadata {
+  projectId: string;
+  feedbackId?: string;
+  sentiment?: "positive" | "negative" | "neutral";
+}
+
+export interface LoginActivityMetadata extends BaseActivityMetadata {
+  streak?: number;
+  maxStreak?: number;
+  bonusPoints?: number;
+}
+
+export interface ProfileActivityMetadata extends BaseActivityMetadata {
+  completionPercentage?: number;
+}
+
+export type ActivityMetadata =
+  | BaseActivityMetadata
+  | ProjectActivityMetadata
+  | GoalActivityMetadata
+  | QuestionnaireActivityMetadata
+  | FeedbackActivityMetadata
+  | LoginActivityMetadata
+  | ProfileActivityMetadata
+  | Record<string, any>; // For backward compatibility
+
 export interface ActivityData {
   user_id: string;
   activity_type: string;
   description: string;
   points?: number;
-  metadata?: Record<string, any>;
+  metadata?: ActivityMetadata;
   project_id?: string;
+}
+
+/**
+ * Helper function to generate a standardized activity description
+ * based on the activity type and metadata
+ */
+export function generateActivityDescription(
+  activityType: string,
+  metadata?: ActivityMetadata,
+): string {
+  switch (activityType) {
+    case "project_created":
+      return metadata && "projectTitle" in metadata
+        ? `Created project: ${metadata.projectTitle}`
+        : "Created a new project";
+
+    case "project_updated":
+      return metadata && "projectTitle" in metadata
+        ? `Updated project: ${metadata.projectTitle}${metadata.version ? ` (v${metadata.version})` : ""}`
+        : "Updated a project";
+
+    case "goal_created":
+      return metadata && "goalTitle" in metadata
+        ? `Created goal: ${metadata.goalTitle}`
+        : "Created a new goal";
+
+    case "goal_completed":
+      return metadata && "goalTitle" in metadata
+        ? `Completed goal: ${metadata.goalTitle}`
+        : "Completed a goal";
+
+    case "questionnaire_created":
+      return metadata && "questionnaireTitle" in metadata
+        ? `Created questionnaire: ${metadata.questionnaireTitle}`
+        : "Created a new questionnaire";
+
+    case "questionnaire_response":
+      return metadata && "questionnaireTitle" in metadata
+        ? `Received response for questionnaire: ${metadata.questionnaireTitle}`
+        : "Received a questionnaire response";
+
+    case "feedback_given":
+      return "Provided feedback on a project";
+
+    case "feedback_received":
+      return "Received feedback on your project";
+
+    case "daily_login":
+      return metadata &&
+        "streak" in metadata &&
+        metadata.streak &&
+        metadata.streak > 1
+        ? `Logged in for ${metadata.streak} days in a row!`
+        : "Logged in for the day";
+
+    case "profile_completed":
+      return "Completed your profile";
+
+    case "level_up":
+      return "Reached a new level!";
+
+    default:
+      return `Activity: ${activityType}`;
+  }
+}
+
+/**
+ * Creates a standardized activity record based on the activity type and metadata
+ */
+export function createActivityRecord(
+  userId: string,
+  activityType: string,
+  options: {
+    points?: number;
+    description?: string;
+    metadata?: ActivityMetadata;
+    projectId?: string;
+  } = {},
+): ActivityData {
+  const { points = 0, metadata = {}, projectId } = options;
+
+  // Extract projectId from metadata if not explicitly provided
+  const derivedProjectId =
+    projectId ||
+    (metadata && "projectId" in metadata ? metadata.projectId : undefined);
+
+  // Generate description if not provided
+  const description =
+    options.description || generateActivityDescription(activityType, metadata);
+
+  // Create timestamp if not already in metadata
+  const enrichedMetadata = {
+    ...metadata,
+    timestamp:
+      metadata && "timestamp" in metadata
+        ? metadata.timestamp
+        : new Date().toISOString(),
+  };
+
+  return {
+    user_id: userId,
+    activity_type: activityType,
+    description,
+    points,
+    metadata: enrichedMetadata,
+    project_id: derivedProjectId,
+  };
 }
 
 export const activityService = {
   /**
-   * Record a user activity
-   */
-  /**
-   * Record a user activity with improved error handling and debugging
+   * Record a user activity with improved error handling and duplicate prevention
+   * @param data ActivityData object or parameters to create one
    */
   async recordActivity(
-    data: ActivityData,
-  ): Promise<{ success: boolean; error?: any; data?: any }> {
+    data:
+      | ActivityData
+      | {
+          userId: string;
+          activityType: string;
+          points?: number;
+          description?: string;
+          metadata?: ActivityMetadata;
+          projectId?: string;
+        },
+  ): Promise<{
+    success: boolean;
+    error?: any;
+    data?: any;
+    duplicate?: boolean;
+  }> {
+    // Convert from simplified format if needed
+    const activityData: ActivityData =
+      "user_id" in data
+        ? data
+        : createActivityRecord(data.userId, data.activityType, {
+            points: data.points,
+            description: data.description,
+            metadata: data.metadata,
+            projectId: data.projectId,
+          });
     try {
       const {
         user_id,
@@ -27,7 +208,7 @@ export const activityService = {
         points = 0,
         metadata = {},
         project_id,
-      } = data;
+      } = activityData;
 
       console.log(
         `[Activity Service] Recording activity: ${activity_type} for user ${user_id}`,
@@ -52,6 +233,45 @@ export const activityService = {
         );
         console.error("[Activity Service] " + error.message);
         return { success: false, error };
+      }
+
+      // Enhanced duplicate check for activities
+      if (project_id) {
+        // For project-related activities, check based on user_id, activity_type, and project_id
+        const { data: existingActivity, error: checkError } = await supabase
+          .from("user_activity")
+          .select("id")
+          .eq("user_id", user_id)
+          .eq("activity_type", activity_type)
+          .eq("project_id", project_id)
+          .limit(1);
+
+        if (!checkError && existingActivity && existingActivity.length > 0) {
+          console.log(
+            `[Activity Service] Activity ${activity_type} already exists for project ${project_id}, skipping duplicate`,
+          );
+          return { success: true, data: existingActivity[0], duplicate: true };
+        }
+      } else {
+        // For non-project activities, check for recent duplicates (within last minute)
+        const oneMinuteAgo = new Date();
+        oneMinuteAgo.setMinutes(oneMinuteAgo.getMinutes() - 1);
+
+        const { data: recentActivity, error: checkError } = await supabase
+          .from("user_activity")
+          .select("id, created_at")
+          .eq("user_id", user_id)
+          .eq("activity_type", activity_type)
+          .gt("created_at", oneMinuteAgo.toISOString())
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (!checkError && recentActivity && recentActivity.length > 0) {
+          console.log(
+            `[Activity Service] Recent activity ${activity_type} already exists for user ${user_id}, skipping duplicate`,
+          );
+          return { success: true, data: recentActivity[0], duplicate: true };
+        }
       }
 
       // Ensure metadata is an object

@@ -1,9 +1,18 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "./card";
 import { Badge } from "./badge";
 import { Button } from "./button";
 import { Avatar, AvatarFallback, AvatarImage } from "./avatar";
-import { Laptop, MessageSquare, Palette, Smartphone, Star } from "lucide-react";
+import {
+  Laptop,
+  Loader2,
+  MessageSquare,
+  Palette,
+  Smartphone,
+  Star,
+} from "lucide-react";
+import { supabase } from "../../../supabase/supabase";
+import { useAuth } from "../../../supabase/auth";
 
 interface ProjectCreator {
   name: string;
@@ -36,6 +45,41 @@ export function ProjectCard({
   type,
   onClick,
 }: ProjectCardProps) {
+  const { user } = useAuth();
+  const [projectPoints, setProjectPoints] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      fetchProjectPoints(user.id, id);
+    }
+  }, [user, id]);
+
+  const fetchProjectPoints = async (userId: string, projectId: string) => {
+    try {
+      setLoading(true);
+      // Query user_activity table to get points earned for this specific project
+      const { data, error } = await supabase
+        .from("user_activity")
+        .select("points")
+        .eq("user_id", userId)
+        .eq("project_id", projectId);
+
+      if (error) {
+        console.error("Error fetching project points:", error);
+        return;
+      }
+
+      // Sum up all points from activities related to this project
+      const totalPoints =
+        data?.reduce((sum, activity) => sum + (activity.points || 0), 0) || 0;
+      setProjectPoints(totalPoints);
+    } catch (error) {
+      console.error("Unexpected error fetching project points:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
   // Get project icon based on type
   const getProjectIcon = (type: string) => {
     switch (type) {
@@ -118,7 +162,13 @@ export function ProjectCard({
           </div>
           <div className="flex items-center gap-1 text-sm text-amber-600 dark:text-amber-400">
             <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
-            <span>+{pointsReward} pts</span>
+            {loading ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <span>
+                +{projectPoints !== null ? projectPoints : pointsReward} pts
+              </span>
+            )}
           </div>
         </div>
         <Button

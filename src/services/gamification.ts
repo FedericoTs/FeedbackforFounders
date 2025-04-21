@@ -38,72 +38,251 @@ export const gamificationService = {
     console.log("[Gamification Service] Awarding points:", params);
 
     try {
-      // First, invoke the gamification function to award points
-      const { data, error } = await supabase.functions.invoke(
-        "supabase-functions-gamification",
-        {
-          method: "POST",
-          body: params,
-        },
-      );
+      // First check if an activity record already exists to prevent duplicates
+      if (params.projectId) {
+        const { data: existingActivity, error: checkError } = await supabase
+          .from("user_activity")
+          .select("id")
+          .eq("user_id", params.userId)
+          .eq("activity_type", params.activityType)
+          .eq("project_id", params.projectId)
+          .limit(1);
 
-      if (error) {
-        console.error("[Gamification Service] Error awarding points:", error);
-        throw new Error(error.message);
-      }
-
-      // As a fallback, also directly update the users table to ensure consistency
-      if (data.success && params.points !== 0) {
-        try {
-          // Get current user data
-          const { data: userData, error: userError } = await supabase
-            .from("users")
-            .select("points, level, points_to_next_level")
-            .eq("id", params.userId)
-            .single();
-
-          if (userError) {
-            console.error(
-              "[Gamification Service] Error fetching user data:",
-              userError,
-            );
-          } else if (userData) {
-            // Calculate new points
-            const newPoints = (userData.points || 0) + params.points;
-
-            // Update user points directly as a fallback
-            const { error: updateError } = await supabase
-              .from("users")
-              .update({ points: newPoints })
-              .eq("id", params.userId);
-
-            if (updateError) {
-              console.error(
-                "[Gamification Service] Error updating user points directly:",
-                updateError,
-              );
-            } else {
-              console.log(
-                `[Gamification Service] Successfully updated user ${params.userId} points to ${newPoints}`,
-              );
-            }
-          }
-        } catch (fallbackError) {
-          console.error(
-            "[Gamification Service] Error in fallback update:",
-            fallbackError,
+        if (!checkError && existingActivity && existingActivity.length > 0) {
+          console.log(
+            `[Gamification Service] Activity ${params.activityType} already recorded for project ${params.projectId}, skipping duplicate activity recording`,
           );
-          // Continue with the original response even if the fallback fails
+          // We'll still update the points, but won't create a new activity record
         }
       }
 
-      return data;
+      // Try to invoke the gamification function to award points
+      try {
+        const { data, error } = await supabase.functions.invoke(
+          "supabase-functions-gamification",
+          {
+            method: "POST",
+            body: params,
+          },
+        );
+
+        if (error) {
+          console.error(
+            "[Gamification Service] Error awarding points via edge function:",
+            error,
+          );
+          // Don't throw here, continue to fallback
+        } else {
+          // Edge function worked, still do the fallback update for consistency
+          await this.updateUserPointsDirectly(params.userId, params.points);
+          return data;
+        }
+      } catch (edgeFunctionError) {
+        console.error(
+          "[Gamification Service] Exception in edge function call:",
+          edgeFunctionError,
+        );
+        // Continue to fallback
+      }
+
+      // Fallback: Directly update the users table if edge function fails
+      console.log(
+        "[Gamification Service] Using direct database update fallback",
+      );
+
+      // Get current user data
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("points, level, points_to_next_level")
+        .eq("id", params.userId)
+        .single();
+
+      if (userError) {
+        console.error(
+          "[Gamification Service] Error fetching user data:",
+          userError,
+        );
+        throw new Error("Failed to fetch user data for points update");
+      }
+
+      // Calculate new points and level
+      const currentPoints = userData?.points || 0;
+      const currentLevel = userData?.level || 1;
+      const pointsToNextLevel = userData?.points_to_next_level || 100;
+
+      const newPoints = currentPoints + params.points;
+      let newLevel = currentLevel;
+      let newPointsToNextLevel = pointsToNextLevel;
+      let didLevelUp = false;
+
+      // Check if user leveled up
+      if (newPoints >= pointsToNextLevel) {
+        newLevel = currentLevel + 1;
+        newPointsToNextLevel = Math.round(pointsToNextLevel * 1.5); // Increase points needed for next level
+        didLevelUp = true;
+      }
+
+      // Update user points and level
+      const { error: updateError } = await supabase
+        .from("users")
+        .update({
+          points: newPoints,
+          level: newLevel,
+          points_to_next_level: newPointsToNextLevel,
+        })
+        .eq("id", params.userId);
+
+      if (updateError) {
+        console.error(
+          "[Gamification Service] Error updating user points directly:",
+          updateError,
+        );
+        throw new Error("Failed to update user points");
+      }
+
+      console.log(
+        `[Gamification Service] Successfully updated user ${params.userId} points to ${newPoints} via fallback`,
+      );
+
+      // Check if activity already exists before recording
+      let activityExists = false;
+      if (params.projectId) {
+        const { data: existingActivity, error: checkError } = await supabase
+          .from("user_activity")
+          .select("id")
+          .eq("user_id", params.userId)
+          .eq("activity_type", params.activityType)
+          .eq("project_id", params.projectId)
+          .limit(1);
+
+        activityExists =
+          !checkError && existingActivity && existingActivity.length > 0;
+      }
+
+      // Record activity directly if we're using the fallback and activity doesn't exist
+      if (!activityExists) {
+        try {
+          await supabase.from("user_activity").insert({
+            user_id: params.userId,
+            activity_type: params.activityType,
+            description: params.description,
+            points: params.points,
+            metadata: params.metadata,
+            project_id: params.projectId,
+          });
+        } catch (activityError) {
+          console.error(
+            "[Gamification Service] Error recording activity in fallback:",
+            activityError,
+          );
+          // Continue even if activity recording fails
+        }
+      }
+
+      // If user leveled up, record that as a separate activity
+      if (didLevelUp) {
+        try {
+          await supabase.from("user_activity").insert({
+            user_id: params.userId,
+            activity_type: "level_up",
+            description: `Congratulations! You've reached level ${newLevel}!`,
+            points: 0,
+            metadata: { oldLevel: currentLevel, newLevel },
+          });
+        } catch (levelUpError) {
+          console.error(
+            "[Gamification Service] Error recording level up activity:",
+            levelUpError,
+          );
+          // Continue even if level up activity recording fails
+        }
+      }
+
+      // Return a response similar to what the edge function would return
+      return {
+        success: true,
+        points: newPoints,
+        level: newLevel,
+        leveledUp: didLevelUp,
+      };
     } catch (error) {
       console.error(
         "[Gamification Service] Unexpected error in awardPoints:",
         error,
       );
-      throw error;
+
+      // Last resort fallback - just try to update points without any other logic
+      try {
+        await this.updateUserPointsDirectly(params.userId, params.points);
+        return {
+          success: true,
+          points: params.points,
+          level: 1,
+          leveledUp: false,
+        };
+      } catch (lastResortError) {
+        console.error(
+          "[Gamification Service] Last resort fallback also failed:",
+          lastResortError,
+        );
+        throw error; // Throw the original error
+      }
+    }
+  },
+
+  /**
+   * Helper method to directly update user points
+   * Used as a fallback when the edge function fails
+   */
+  async updateUserPointsDirectly(
+    userId: string,
+    pointsToAdd: number,
+  ): Promise<boolean> {
+    if (pointsToAdd === 0) return true; // No need to update if points is 0
+
+    try {
+      // Get current user data
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("points")
+        .eq("id", userId)
+        .single();
+
+      if (userError) {
+        console.error(
+          "[Gamification Service] Error fetching user data for direct update:",
+          userError,
+        );
+        return false;
+      }
+
+      // Calculate new points
+      const newPoints = (userData?.points || 0) + pointsToAdd;
+
+      // Update user points directly
+      const { error: updateError } = await supabase
+        .from("users")
+        .update({ points: newPoints })
+        .eq("id", userId);
+
+      if (updateError) {
+        console.error(
+          "[Gamification Service] Error in direct points update:",
+          updateError,
+        );
+        return false;
+      }
+
+      console.log(
+        `[Gamification Service] Successfully updated user ${userId} points to ${newPoints} directly`,
+      );
+      return true;
+    } catch (error) {
+      console.error(
+        "[Gamification Service] Unexpected error in direct points update:",
+        error,
+      );
+      return false;
     }
   },
 

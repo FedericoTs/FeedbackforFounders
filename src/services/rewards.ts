@@ -220,16 +220,45 @@ export const rewardsService = {
     description?: string;
     metadata?: Record<string, any>;
     projectId?: string;
+    skipActivityRecord?: boolean; // Parameter to skip activity recording
   }): Promise<{
     success: boolean;
     points: number;
     message?: string;
+    activityRecorded?: boolean; // Return value to indicate if activity was recorded
   }> {
     try {
       console.log("[Rewards Service] Processing reward:", params);
-      const { userId, activityType, description, metadata, projectId } = params;
+      const {
+        userId,
+        activityType,
+        description,
+        metadata,
+        projectId,
+        skipActivityRecord = false,
+      } = params;
       const rules = this.getDefaultRewardRules();
       const rule = rules[activityType];
+      let activityRecorded = false;
+
+      // First check if an activity record already exists to prevent duplicates
+      if (!skipActivityRecord && projectId) {
+        const { data: existingActivity, error: checkError } = await supabase
+          .from("user_activity")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("activity_type", activityType)
+          .eq("project_id", projectId)
+          .limit(1);
+
+        if (!checkError && existingActivity && existingActivity.length > 0) {
+          console.log(
+            `[Rewards Service] Activity ${activityType} already recorded for project ${projectId}, skipping duplicate`,
+          );
+          // Activity already exists, but we'll still process the points
+          activityRecorded = true;
+        }
+      }
 
       // If no rule exists or the rule is disabled, don't award points
       if (!rule || !rule.enabled) {
@@ -240,6 +269,7 @@ export const rewardsService = {
           success: false,
           points: 0,
           message: "No reward rule for this activity",
+          activityRecorded: false,
         };
       }
 
@@ -251,20 +281,24 @@ export const rewardsService = {
             `[Rewards Service] Project creation limit reached for user: ${userId}`,
           );
           // Still record the activity but with 0 points
-          await activityService.recordActivity({
-            user_id: userId,
-            activity_type: activityType,
-            description: description || rule.description,
-            points: 0, // No points awarded
-            metadata,
-            project_id: projectId,
-          });
+          if (!skipActivityRecord && !activityRecorded) {
+            await activityService.recordActivity({
+              user_id: userId,
+              activity_type: activityType,
+              description: description || rule.description,
+              points: 0, // No points awarded
+              metadata,
+              project_id: projectId,
+            });
+            activityRecorded = true;
+          }
 
           return {
             success: true,
             points: 0,
             message:
               "Project created successfully, but no points awarded (limit reached)",
+            activityRecorded,
           };
         }
       }
@@ -281,19 +315,23 @@ export const rewardsService = {
             `[Rewards Service] Activity ${activityType} on cooldown for user: ${userId}`,
           );
           // Still record the activity but with 0 points
-          await activityService.recordActivity({
-            user_id: userId,
-            activity_type: activityType,
-            description: description || rule.description,
-            points: 0, // No points awarded
-            metadata,
-            project_id: projectId,
-          });
+          if (!skipActivityRecord && !activityRecorded) {
+            await activityService.recordActivity({
+              user_id: userId,
+              activity_type: activityType,
+              description: description || rule.description,
+              points: 0, // No points awarded
+              metadata,
+              project_id: projectId,
+            });
+            activityRecorded = true;
+          }
 
           return {
             success: true,
             points: 0,
             message: `Activity recorded, but no points awarded (on cooldown for ${rule.cooldown} hours)`,
+            activityRecorded,
           };
         }
       }
@@ -310,19 +348,23 @@ export const rewardsService = {
             `[Rewards Service] Activity ${activityType} limit reached for user: ${userId}`,
           );
           // Still record the activity but with 0 points
-          await activityService.recordActivity({
-            user_id: userId,
-            activity_type: activityType,
-            description: description || rule.description,
-            points: 0, // No points awarded
-            metadata,
-            project_id: projectId,
-          });
+          if (!skipActivityRecord && !activityRecorded) {
+            await activityService.recordActivity({
+              user_id: userId,
+              activity_type: activityType,
+              description: description || rule.description,
+              points: 0, // No points awarded
+              metadata,
+              project_id: projectId,
+            });
+            activityRecorded = true;
+          }
 
           return {
             success: true,
             points: 0,
             message: `Activity recorded, but no points awarded (limit of ${rule.limit} reached)`,
+            activityRecorded,
           };
         }
       }
@@ -338,17 +380,45 @@ export const rewardsService = {
         activityType,
         description: description || rule.description,
         metadata,
+        projectId, // Pass projectId to gamificationService
       });
 
-      // Record the activity
-      await activityService.recordActivity({
-        user_id: userId,
-        activity_type: activityType,
-        description: description || rule.description,
-        points: rule.points,
-        metadata,
-        project_id: projectId,
-      });
+      // Record the activity if it hasn't been recorded yet and we're not skipping it
+      if (!skipActivityRecord && !activityRecorded) {
+        // Double-check for existing activity to prevent duplicates
+        let existingActivity = false;
+        if (projectId) {
+          const { data: existingData } = await supabase
+            .from("user_activity")
+            .select("id")
+            .eq("user_id", userId)
+            .eq("activity_type", activityType)
+            .eq("project_id", projectId)
+            .limit(1);
+
+          existingActivity = existingData && existingData.length > 0;
+        }
+
+        if (!existingActivity) {
+          console.log(
+            `[Rewards Service] Recording activity for ${activityType} with ${rule.points} points`,
+          );
+          await activityService.recordActivity({
+            user_id: userId,
+            activity_type: activityType,
+            description: description || rule.description,
+            points: rule.points,
+            metadata,
+            project_id: projectId,
+          });
+          activityRecorded = true;
+        } else {
+          console.log(
+            `[Rewards Service] Activity for ${activityType} already exists, skipping record`,
+          );
+          activityRecorded = true;
+        }
+      }
 
       // Ensure the user's total points are updated in the users table
       try {
@@ -407,6 +477,7 @@ export const rewardsService = {
         message: awardResult.leveledUp
           ? `Awarded ${rule.points} points and leveled up to level ${awardResult.level}!`
           : `Awarded ${rule.points} points!`,
+        activityRecorded,
       };
     } catch (error) {
       console.error("[Rewards Service] Error processing reward:", error);

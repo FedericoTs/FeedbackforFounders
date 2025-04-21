@@ -116,26 +116,85 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Record activity
-      const { error: activityError } = await supabase
-        .from("user_activity")
-        .insert({
-          user_id: userId,
-          activity_type: activityType,
-          description,
-          points,
-          metadata,
-          project_id: projectId,
-        });
+      // Check if activity already exists to prevent duplicates
+      let activityRecorded = false;
+      let activityExists = false;
 
-      if (activityError) {
-        return new Response(JSON.stringify({ error: activityError.message }), {
-          status: 500,
-          headers: {
-            "Content-Type": "application/json",
-            ...corsHeaders,
-          },
-        });
+      if (projectId) {
+        const { data: existingActivity, error: checkError } = await supabase
+          .from("user_activity")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("activity_type", activityType)
+          .eq("project_id", projectId)
+          .limit(1);
+
+        activityExists =
+          !checkError && existingActivity && existingActivity.length > 0;
+
+        if (activityExists) {
+          console.log(
+            `Activity ${activityType} already exists for project ${projectId}, skipping duplicate record`,
+          );
+          activityRecorded = true; // Mark as recorded since it already exists
+        }
+      } else {
+        // If no projectId, check based on user_id and activity_type only
+        // This helps prevent duplicates for non-project activities
+        const { data: existingActivity, error: checkError } = await supabase
+          .from("user_activity")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("activity_type", activityType)
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        // For non-project activities, only consider it a duplicate if created within the last minute
+        if (!checkError && existingActivity && existingActivity.length > 0) {
+          const lastActivity = existingActivity[0];
+          const lastActivityTime = new Date(lastActivity.created_at).getTime();
+          const currentTime = new Date().getTime();
+          const timeDiff = currentTime - lastActivityTime;
+
+          // If activity was created in the last 60 seconds, consider it a duplicate
+          if (timeDiff < 60000) {
+            activityExists = true;
+            activityRecorded = true;
+            console.log(
+              `Recent activity ${activityType} already exists for user ${userId}, skipping duplicate record`,
+            );
+          }
+        }
+      }
+
+      // Only record activity if it doesn't already exist
+      if (!activityExists) {
+        const { error: activityError } = await supabase
+          .from("user_activity")
+          .insert({
+            user_id: userId,
+            activity_type: activityType,
+            description,
+            points,
+            metadata,
+            project_id: projectId,
+          });
+
+        if (activityError) {
+          return new Response(
+            JSON.stringify({ error: activityError.message }),
+            {
+              status: 500,
+              headers: {
+                "Content-Type": "application/json",
+                ...corsHeaders,
+              },
+            },
+          );
+        }
+        activityRecorded = true;
+      } else {
+        console.log("Activity already exists, skipping duplicate record");
       }
 
       // If user leveled up, record that as a separate activity
@@ -190,6 +249,7 @@ Deno.serve(async (req) => {
           points: newPoints,
           level: newLevel,
           leveledUp: didLevelUp,
+          activityRecorded: activityRecorded,
         }),
         {
           headers: {
