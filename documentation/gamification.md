@@ -203,6 +203,21 @@ The Activity Feed (`ActivityFeed.tsx`) displays:
 - Points earned for each activity
 - Special indicators for achievements and level-ups
 
+### Award Toast Notifications
+
+The Award Toast system (`AwardToast.tsx`, `useAwardToast.tsx`, `AwardToastListener.tsx`) provides:
+- Animated, visually appealing notifications when points are awarded
+- Different visual styles based on award type (default, achievement, streak, level-up)
+- Immediate feedback to users when they earn points or reach milestones
+- Points amount prominently displayed with animation effects
+- Automatic dismissal after 5 seconds with a visual countdown
+
+Toast variants include:
+- Default (teal gradient): For standard point awards
+- Achievement (amber/yellow gradient): For earning achievements
+- Streak (blue/indigo gradient): For login streak rewards
+- Level-up (purple/pink gradient): For reaching new levels
+
 ## Implementation Details
 
 ### Key Services
@@ -218,6 +233,15 @@ The Activity Feed (`ActivityFeed.tsx`) displays:
 - **daily-streak**: Manages login streaks and bonus points
 - **daily-login**: Records daily logins and awards base points
 
+### UI Components
+
+- **AwardToast**: Animated toast notification for rewards
+- **AwardToastProvider**: Context provider for the toast system
+- **AwardToastListener**: Listens for award events and triggers toasts
+- **RewardsPanel**: Displays user's rewards and progress
+- **LoginStreakDisplay**: Shows login streak information
+- **ActivityFeed**: Displays recent activity and points earned
+
 ### Database Tables
 
 - **users**: Stores user points, level, and streak information
@@ -228,11 +252,13 @@ The Activity Feed (`ActivityFeed.tsx`) displays:
 
 ## Best Practices
 
-1. **Immediate Feedback**: Users receive immediate notification when points are awarded
+1. **Immediate Feedback**: Users receive immediate notification when points are awarded through animated toast notifications
 2. **Transparent Progress**: Level progress and point requirements are clearly displayed
 3. **Balanced Rewards**: Points are balanced to reward valuable contributions appropriately
 4. **Anti-Gaming Measures**: Cooldowns and limits prevent system exploitation
 5. **Fallback Mechanisms**: Ensure rewards are processed even during system issues
+6. **Visual Differentiation**: Different types of rewards (achievements, level-ups, streaks) have distinct visual styles
+7. **Non-Intrusive Notifications**: Toast notifications provide feedback without disrupting the user experience
 
 ## Future Enhancements
 
@@ -256,4 +282,4 @@ This documentation should be updated when:
 
 ## Last Updated
 
-This documentation was last updated on: August 20, 2024
+This documentation was last updated on: September 25, 2024

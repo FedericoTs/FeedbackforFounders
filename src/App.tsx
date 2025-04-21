@@ -16,6 +16,8 @@ import { AuthProvider, useAuth } from "../supabase/auth";
 import { Toaster } from "./components/ui/toaster";
 import { ThemeProvider } from "./components/ui/theme-provider";
 import DashboardLayout from "./components/dashboard/layout/DashboardLayout";
+import { AwardToastProvider } from "./hooks/useAwardToast";
+import { AwardToastListener } from "./components/AwardToastListener";
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -74,10 +76,13 @@ function App() {
   return (
     <ThemeProvider defaultTheme="light">
       <AuthProvider>
-        <Suspense fallback={<p>Loading...</p>}>
-          <AppRoutes />
-        </Suspense>
-        <Toaster />
+        <AwardToastProvider>
+          <Suspense fallback={<p>Loading...</p>}>
+            <AppRoutes />
+          </Suspense>
+          <Toaster />
+          <AwardToastListener />
+        </AwardToastProvider>
       </AuthProvider>
     </ThemeProvider>
   );

@@ -828,6 +828,29 @@ export const projectService = {
                     .update({ points: (userData.points || 0) + 20 })
                     .eq("id", userId);
 
+                  // Directly dispatch award event as a fallback
+                  if (typeof window !== "undefined" && window.dispatchEvent) {
+                    try {
+                      const awardEvent = new CustomEvent("award:received", {
+                        detail: {
+                          points: 20,
+                          title: "Project Created!",
+                          description: `You earned 20 points for creating a project`,
+                          variant: "default",
+                        },
+                      });
+                      window.dispatchEvent(awardEvent);
+                      console.log(
+                        "Project creation award event dispatched directly",
+                      );
+                    } catch (eventError) {
+                      console.error(
+                        "Error dispatching project creation award event:",
+                        eventError,
+                      );
+                    }
+                  }
+
                   return {
                     success: true,
                     points: 20,
@@ -854,6 +877,37 @@ export const projectService = {
           });
 
         console.log("Project creation reward result:", rewardResult);
+
+        // Ensure award toast is shown by directly dispatching the event
+        if (rewardResult.success && rewardResult.points > 0) {
+          if (typeof window !== "undefined" && window.dispatchEvent) {
+            try {
+              const awardEvent = new CustomEvent("award:received", {
+                detail: {
+                  points: rewardResult.points,
+                  title: "Project Created!",
+                  description: `You earned ${rewardResult.points} points for creating a project`,
+                  variant: "default",
+                },
+              });
+              window.dispatchEvent(awardEvent);
+              console.log("Project creation award event dispatched");
+
+              // Also try with document to ensure it's caught
+              if (document && document.dispatchEvent) {
+                document.dispatchEvent(awardEvent);
+                console.log(
+                  "Project creation award event dispatched via document",
+                );
+              }
+            } catch (eventError) {
+              console.error(
+                "Error dispatching project creation award event:",
+                eventError,
+              );
+            }
+          }
+        }
       } catch (rewardError) {
         console.error("All reward processing methods failed:", rewardError);
         // Continue execution even if all reward processing methods fail
@@ -953,6 +1007,37 @@ export const projectService = {
         });
 
         console.log("Project update reward result:", rewardResult);
+
+        // Ensure award toast is shown by directly dispatching the event
+        if (rewardResult.success && rewardResult.points > 0) {
+          if (typeof window !== "undefined" && window.dispatchEvent) {
+            try {
+              const awardEvent = new CustomEvent("award:received", {
+                detail: {
+                  points: rewardResult.points,
+                  title: "Project Updated!",
+                  description: `You earned ${rewardResult.points} points for updating a project`,
+                  variant: "default",
+                },
+              });
+              window.dispatchEvent(awardEvent);
+              console.log("Project update award event dispatched");
+
+              // Also try with document to ensure it's caught
+              if (document && document.dispatchEvent) {
+                document.dispatchEvent(awardEvent);
+                console.log(
+                  "Project update award event dispatched via document",
+                );
+              }
+            } catch (eventError) {
+              console.error(
+                "Error dispatching project update award event:",
+                eventError,
+              );
+            }
+          }
+        }
       } catch (rewardError) {
         console.error("Error processing project update reward:", rewardError);
         // Continue execution even if reward processing fails
@@ -970,51 +1055,239 @@ export const projectService = {
    */
   async deleteProject(projectId: string, userId: string): Promise<void> {
     try {
+      console.log(
+        `[Project Service] Starting deletion of project ${projectId} by user ${userId}`,
+      );
+
       // First check if the project exists and if the user is the owner
       const { data: project, error: projectError } = await supabase
         .from("projects")
-        .select("user_id")
+        .select("user_id, title")
         .eq("id", projectId)
         .single();
 
       if (projectError) {
-        console.error("Error fetching project:", projectError);
+        console.error(
+          "[Project Service] Error fetching project:",
+          projectError,
+        );
         throw new Error("Project not found");
       }
 
-      // Check if user is the direct owner of the project
-      if (project.user_id === userId) {
-        // User is the direct owner, proceed with deletion
-        const { error } = await supabase
-          .from("projects")
-          .delete()
-          .eq("id", projectId);
+      console.log(
+        `[Project Service] Found project: ${project.title} (${projectId})`,
+      );
 
-        if (error) throw error;
-        return;
+      // Check if user is the direct owner of the project or a collaborator with owner role
+      const isDirectOwner = project.user_id === userId;
+      let isCollaboratorOwner = false;
+
+      if (!isDirectOwner) {
+        console.log(
+          `[Project Service] User is not direct owner, checking collaborator status`,
+        );
+        // Check collaborator status
+        const { data: collaborator, error: collabError } = await supabase
+          .from("project_collaborators")
+          .select("role")
+          .eq("project_id", projectId)
+          .eq("user_id", userId)
+          .single();
+
+        if (collabError || !collaborator || collaborator.role !== "owner") {
+          console.error(
+            "[Project Service] User does not have permission to delete project",
+          );
+          throw new Error("Only project owners can delete projects");
+        }
+        isCollaboratorOwner = true;
+        console.log(`[Project Service] User is a collaborator with owner role`);
+      } else {
+        console.log(
+          `[Project Service] User is the direct owner of the project`,
+        );
       }
 
-      // If not direct owner, check collaborator status
-      const { data: collaborator, error: collabError } = await supabase
+      // If we get here, the user has permission to delete the project
+      console.log(
+        `[Project Service] Deleting project ${projectId} and related records...`,
+      );
+
+      // First, delete related records in user_activity table
+      const { error: activityError } = await supabase
+        .from("user_activity")
+        .delete()
+        .eq("project_id", projectId);
+
+      if (activityError) {
+        console.error(
+          "[Project Service] Error deleting related user activities:",
+          activityError,
+        );
+        // Continue with deletion even if this fails
+      } else {
+        console.log(
+          `[Project Service] Successfully deleted related user activities`,
+        );
+      }
+
+      // Delete related records in project_activity table
+      const { error: projectActivityError } = await supabase
+        .from("project_activity")
+        .delete()
+        .eq("project_id", projectId);
+
+      if (projectActivityError) {
+        console.error(
+          "Error deleting project activities:",
+          projectActivityError,
+        );
+        // Continue with deletion even if this fails
+      }
+
+      // Delete related records in project_goals table
+      const { error: goalsError } = await supabase
+        .from("project_goals")
+        .delete()
+        .eq("project_id", projectId);
+
+      if (goalsError) {
+        console.error("Error deleting project goals:", goalsError);
+        // Continue with deletion even if this fails
+      }
+
+      // Delete related records in project_questionnaires table
+      const { error: questionnairesError } = await supabase
+        .from("project_questionnaires")
+        .delete()
+        .eq("project_id", projectId);
+
+      if (questionnairesError) {
+        console.error(
+          "Error deleting project questionnaires:",
+          questionnairesError,
+        );
+        // Continue with deletion even if this fails
+      }
+
+      // Delete related records in project_collaborators table
+      const { error: collaboratorsError } = await supabase
         .from("project_collaborators")
-        .select("role")
-        .eq("project_id", projectId)
-        .eq("user_id", userId)
-        .single();
+        .delete()
+        .eq("project_id", projectId);
 
-      if (collabError || !collaborator || collaborator.role !== "owner") {
-        throw new Error("Only project owners can delete projects");
+      if (collaboratorsError) {
+        console.error(
+          "Error deleting project collaborators:",
+          collaboratorsError,
+        );
+        // Continue with deletion even if this fails
       }
 
-      // Delete the project (cascade will handle related records)
+      // Delete related records in project_feedback table
+      const { error: feedbackError } = await supabase
+        .from("project_feedback")
+        .delete()
+        .eq("project_id", projectId);
+
+      if (feedbackError) {
+        console.error("Error deleting project feedback:", feedbackError);
+        // Continue with deletion even if this fails
+      }
+
+      // Delete related records in project_feedback_sentiment table
+      const { error: sentimentError } = await supabase
+        .from("project_feedback_sentiment")
+        .delete()
+        .eq("project_id", projectId);
+
+      if (sentimentError) {
+        console.error(
+          "Error deleting project feedback sentiment:",
+          sentimentError,
+        );
+        // Continue with deletion even if this fails
+      }
+
+      // Delete related records in project_versions table
+      const { error: versionsError } = await supabase
+        .from("project_versions")
+        .delete()
+        .eq("project_id", projectId);
+
+      if (versionsError) {
+        console.error("Error deleting project versions:", versionsError);
+        // Continue with deletion even if this fails
+      }
+
+      // Finally, delete the project itself
       const { error } = await supabase
         .from("projects")
         .delete()
         .eq("id", projectId);
 
       if (error) throw error;
+
+      console.log(
+        `[Project Service] Project ${projectId} and related records deleted successfully`,
+      );
+
+      // Record the project deletion activity
+      try {
+        console.log(`[Project Service] Recording project deletion activity`);
+        const { rewardsService } = await import("./rewards");
+        const rewardResult = await rewardsService.processReward({
+          userId,
+          activityType: "project_updated", // Using project_updated for deletion
+          description: `Deleted project: ${project.title}`,
+          metadata: { projectTitle: project.title, action: "deleted" },
+          // Don't include projectId since it's been deleted
+        });
+
+        console.log(
+          `[Project Service] Project deletion activity result:`,
+          rewardResult,
+        );
+
+        // Ensure award toast is shown by directly dispatching the event
+        if (rewardResult.success && rewardResult.points > 0) {
+          if (typeof window !== "undefined" && window.dispatchEvent) {
+            try {
+              const awardEvent = new CustomEvent("award:received", {
+                detail: {
+                  points: rewardResult.points,
+                  title: "Project Deleted",
+                  description: `You earned ${rewardResult.points} points for project management`,
+                  variant: "default",
+                },
+              });
+              window.dispatchEvent(awardEvent);
+              console.log("Project deletion award event dispatched");
+
+              // Also try with document to ensure it's caught
+              if (document && document.dispatchEvent) {
+                document.dispatchEvent(awardEvent);
+                console.log(
+                  "Project deletion award event dispatched via document",
+                );
+              }
+            } catch (eventError) {
+              console.error(
+                "Error dispatching project deletion award event:",
+                eventError,
+              );
+            }
+          }
+        }
+      } catch (activityError) {
+        console.error(
+          "[Project Service] Error recording project deletion activity:",
+          activityError,
+        );
+        // Continue execution even if activity recording fails
+      }
     } catch (error) {
-      console.error("Error deleting project:", error);
+      console.error("[Project Service] Error deleting project:", error);
       throw error;
     }
   },

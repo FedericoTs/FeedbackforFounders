@@ -260,6 +260,10 @@ export const rewardsService = {
         }
       }
 
+      console.log(
+        `[Rewards Service] Activity recorded status: ${activityRecorded}, skipActivityRecord: ${skipActivityRecord}`,
+      );
+
       // If no rule exists or the rule is disabled, don't award points
       if (!rule || !rule.enabled) {
         console.log(
@@ -403,7 +407,7 @@ export const rewardsService = {
           console.log(
             `[Rewards Service] Recording activity for ${activityType} with ${rule.points} points`,
           );
-          await activityService.recordActivity({
+          const recordResult = await activityService.recordActivity({
             user_id: userId,
             activity_type: activityType,
             description: description || rule.description,
@@ -411,7 +415,11 @@ export const rewardsService = {
             metadata,
             project_id: projectId,
           });
-          activityRecorded = true;
+          activityRecorded = recordResult.success;
+          console.log(
+            `[Rewards Service] Activity recording result:`,
+            recordResult,
+          );
         } else {
           console.log(
             `[Rewards Service] Activity for ${activityType} already exists, skipping record`,
@@ -471,12 +479,107 @@ export const rewardsService = {
         // Continue with the original response even if the sync fails
       }
 
+      // Prepare the result message
+      const resultMessage = awardResult.leveledUp
+        ? `Awarded ${rule.points} points and leveled up to level ${awardResult.level}!`
+        : `Awarded ${rule.points} points!`;
+
+      // Trigger toast notification if available in window context
+      try {
+        if (typeof window !== "undefined" && window.dispatchEvent) {
+          console.log(
+            "[Rewards Service] Dispatching award:received event with points:",
+            rule.points,
+          );
+
+          const eventDetail = {
+            points: rule.points,
+            title:
+              activityType === "level_up" ? "Level Up!" : "Points Awarded!",
+            description: resultMessage,
+            variant:
+              activityType === "level_up"
+                ? "level"
+                : activityType === "achievement_earned"
+                  ? "achievement"
+                  : activityType === "daily_login"
+                    ? "streak"
+                    : "default",
+          };
+
+          console.log("[Rewards Service] Event detail:", eventDetail);
+
+          // Use setTimeout to ensure the event is dispatched after the component is mounted
+          setTimeout(() => {
+            try {
+              const awardEvent = new CustomEvent("award:received", {
+                detail: eventDetail,
+              });
+
+              window.dispatchEvent(awardEvent);
+              console.log(
+                "[Rewards Service] Event dispatched successfully after timeout",
+              );
+            } catch (delayedError) {
+              console.error(
+                "[Rewards Service] Error in delayed dispatch:",
+                delayedError,
+              );
+            }
+          }, 100);
+
+          // Also try immediate dispatch
+          try {
+            const awardEvent = new CustomEvent("award:received", {
+              detail: eventDetail,
+            });
+
+            window.dispatchEvent(awardEvent);
+            console.log(
+              "[Rewards Service] Event dispatched successfully (immediate)",
+            );
+          } catch (immediateError) {
+            console.error(
+              "[Rewards Service] Error in immediate dispatch:",
+              immediateError,
+            );
+          }
+
+          // Try one more time with a different approach
+          setTimeout(() => {
+            try {
+              // Use document.dispatchEvent as an alternative
+              if (document && document.dispatchEvent) {
+                const docEvent = new CustomEvent("award:received", {
+                  detail: eventDetail,
+                });
+                document.dispatchEvent(docEvent);
+                console.log("[Rewards Service] Event dispatched via document");
+              }
+            } catch (docError) {
+              console.error(
+                "[Rewards Service] Error in document dispatch:",
+                docError,
+              );
+            }
+          }, 200);
+        } else {
+          console.warn(
+            "[Rewards Service] Window or dispatchEvent not available",
+          );
+        }
+      } catch (toastError) {
+        console.error(
+          "[Rewards Service] Error showing award toast:",
+          toastError,
+        );
+        // Continue execution even if toast fails
+      }
+
       return {
         success: true,
         points: rule.points,
-        message: awardResult.leveledUp
-          ? `Awarded ${rule.points} points and leveled up to level ${awardResult.level}!`
-          : `Awarded ${rule.points} points!`,
+        message: resultMessage,
         activityRecorded,
       };
     } catch (error) {

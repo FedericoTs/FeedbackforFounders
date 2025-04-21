@@ -113,52 +113,253 @@ await activityService.recordActivity({
 
 The goal management workflow follows these specific steps:
 
-1. **Goal Creation**:
-   - User creates a new goal with title, description, target value, etc.
+### Goal Creation
+
+1. **Modal Trigger**: User clicks "Add Goal" button to open the creation modal
+2. **Input Details**: User enters goal details (title, description, target value, goal type, etc.)
+3. **Data Validation**: System validates the input data
+4. **Goal Persistence**: 
    - System saves goal details to the `project_goals` table
-   - System records a SINGLE activity entry in `user_activity` table
-   - System uses `rewardsService.processReward()` to record activity in `user_activity` table with `goal_created` type
-   - Points are awarded based on the `reward_rules` table
+   - System sets initial values (current_value = 0, status = "in_progress")
+5. **Activity Recording**: 
+   - System creates a standardized activity record using `createActivityRecord` helper function
+   - Activity type is set to `goal_created`
+   - Metadata includes goalTitle, goalType, projectId, and timestamp
+   - System performs duplicate check to ensure only ONE activity is recorded
+   - System records the activity entry in `user_activity` table via `rewardsService.processReward()`
+   - Points are determined from the `reward_rules` table (5 points)
+6. **Points Update**: 
+   - System updates the user's points in the `users` table
+   - System checks if the user has leveled up
+7. **Completion**: User sees the new goal in the project goals list
 
-2. **Goal Update**:
-   - User updates an existing goal
+### Goal Update
+
+1. **Edit Trigger**: User clicks edit button on an existing goal
+2. **Input Changes**: User modifies goal details
+3. **Data Validation**: System validates the updated data
+4. **Goal Update Persistence**: 
    - System updates goal details in the `project_goals` table
-   - System uses `rewardsService.processReward()` to record activity in `user_activity` table with `project_updated` type
-   - Points are awarded based on the `reward_rules` table
+   - System sets updated_at timestamp
+5. **Activity Recording**: 
+   - System creates a standardized activity record using `createActivityRecord` helper function
+   - Activity type is set to `project_updated`
+   - Metadata includes goalTitle, goalType, projectId, and timestamp
+   - System performs duplicate check to ensure only ONE activity is recorded
+   - System records the activity entry in `user_activity` table via `rewardsService.processReward()`
+   - Points are determined from the `reward_rules` table (5 points, subject to 24-hour cooldown)
+6. **Points Update**: 
+   - System updates the user's points in the `users` table if eligible
+   - System checks if the user has leveled up
+7. **Completion**: User sees the updated goal in the project goals list
 
-3. **Goal Completion**:
-   - User marks a goal as completed
+### Goal Completion
+
+1. **Completion Trigger**: User clicks "Mark as Completed" on a goal
+2. **Status Update**: 
    - System updates goal status to "completed" in the `project_goals` table
-   - System uses `rewardsService.processReward()` to record activity in `user_activity` table with `goal_completed` type
-   - Points are awarded based on the `reward_rules` table
+   - System sets updated_at timestamp
+3. **Activity Recording**: 
+   - System creates a standardized activity record using `createActivityRecord` helper function
+   - Activity type is set to `goal_completed`
+   - Metadata includes goalTitle, goalType, projectId, and timestamp
+   - System performs duplicate check to ensure only ONE activity is recorded
+   - System records the activity entry in `user_activity` table via `rewardsService.processReward()`
+   - Points are determined from the `reward_rules` table (15 points)
+4. **Points Update**: 
+   - System updates the user's points in the `users` table
+   - System checks if the user has leveled up
+5. **Completion**: User sees the goal marked as completed with visual indicators
 
-4. **Goal Deletion**:
-   - User deletes a goal
+### Goal Deletion
+
+1. **Deletion Trigger**: User clicks delete button on a goal
+2. **Confirmation**: User confirms deletion in a confirmation dialog
+3. **Goal Removal**: 
    - System removes goal from the `project_goals` table
-   - System uses `rewardsService.processReward()` to record activity in `user_activity` table with `project_updated` type
-   - Points are awarded based on the `reward_rules` table
+4. **Activity Recording**: 
+   - System creates a standardized activity record using `createActivityRecord` helper function
+   - Activity type is set to `project_updated`
+   - Metadata includes goalTitle, projectId, and timestamp
+   - System performs duplicate check to ensure only ONE activity is recorded
+   - System records the activity entry in `user_activity` table via `rewardsService.processReward()`
+   - Points are determined from the `reward_rules` table (5 points, subject to 24-hour cooldown)
+5. **Points Update**: 
+   - System updates the user's points in the `users` table if eligible
+   - System checks if the user has leveled up
+6. **Completion**: User sees the updated goals list without the deleted goal
+
+### Improved Goal Activity Recording
+
+The goal activity recording process uses the standardized approach:
+
+```typescript
+// Example of recording a goal creation activity
+await rewardsService.processReward({
+  userId: user.id,
+  activityType: "goal_created",
+  description: `Created goal: ${newGoal.title} for project`,
+  projectId: projectId,
+  metadata: { goalTitle: newGoal.title, goalType: newGoal.goal_type },
+});
+
+// Example of recording a goal completion activity
+await rewardsService.processReward({
+  userId: user.id,
+  activityType: "goal_completed",
+  description: `Completed goal: ${goal.title}`,
+  projectId: goal.project_id,
+  metadata: { goalTitle: goal.title, goalType: goal.goal_type },
+});
+```
 
 ## Questionnaire Management Workflow
 
 The questionnaire management workflow follows these specific steps:
 
-1. **Questionnaire Creation**:
-   - User creates a new questionnaire with title, description, questions, etc.
+### Questionnaire Creation
+
+1. **Modal Trigger**: User clicks "Create Questionnaire" button to open the creation modal
+2. **Input Details**: User enters questionnaire details (title, description, questions, etc.)
+3. **Data Validation**: System validates the input data
+4. **Questionnaire Persistence**: 
    - System saves questionnaire details to the `project_questionnaires` table
-   - System uses `rewardsService.processReward()` to record activity in `user_activity` table with `questionnaire_created` type
-   - Points are awarded based on the `reward_rules` table
+   - System sets is_active flag and created_by user ID
+5. **Activity Recording**: 
+   - System creates a standardized activity record using `createActivityRecord` helper function
+   - Activity type is set to `questionnaire_created`
+   - Metadata includes questionnaireTitle, projectId, and timestamp
+   - System performs duplicate check to ensure only ONE activity is recorded
+   - System records the activity entry in `user_activity` table via `rewardsService.processReward()`
+   - Points are determined from the `reward_rules` table (10 points)
+6. **Points Update**: 
+   - System updates the user's points in the `users` table
+   - System checks if the user has leveled up
+7. **Completion**: User sees the new questionnaire in the project questionnaires list
 
-2. **Questionnaire Update**:
-   - User updates an existing questionnaire
+### Questionnaire Update
+
+1. **Edit Trigger**: User clicks edit button on an existing questionnaire
+2. **Input Changes**: User modifies questionnaire details
+3. **Data Validation**: System validates the updated data
+4. **Questionnaire Update Persistence**: 
    - System updates questionnaire details in the `project_questionnaires` table
-   - System uses `rewardsService.processReward()` to record activity in `user_activity` table with `project_updated` type
-   - Points are awarded based on the `reward_rules` table
+   - System sets updated_at timestamp
+5. **Activity Recording**: 
+   - System creates a standardized activity record using `createActivityRecord` helper function
+   - Activity type is set to `project_updated`
+   - Metadata includes questionnaireTitle, projectId, and timestamp
+   - System performs duplicate check to ensure only ONE activity is recorded
+   - System records the activity entry in `user_activity` table via `rewardsService.processReward()`
+   - Points are determined from the `reward_rules` table (5 points, subject to 24-hour cooldown)
+6. **Points Update**: 
+   - System updates the user's points in the `users` table if eligible
+   - System checks if the user has leveled up
+7. **Completion**: User sees the updated questionnaire in the project questionnaires list
 
-3. **Questionnaire Deletion**:
-   - User deletes a questionnaire
+### Questionnaire Response
+
+1. **Response Trigger**: A user submits a response to a questionnaire
+2. **Data Validation**: System validates the response data
+3. **Response Persistence**: 
+   - System saves response details to the `questionnaire_responses` table
+4. **Activity Recording**: 
+   - System creates a standardized activity record using `createActivityRecord` helper function
+   - Activity type is set to `questionnaire_response`
+   - Metadata includes questionnaireTitle, projectId, and timestamp
+   - System performs duplicate check to ensure only ONE activity is recorded
+   - System records the activity entry in `user_activity` table via `rewardsService.processReward()`
+   - Points are determined from the `reward_rules` table (5 points)
+5. **Points Update**: 
+   - System updates the questionnaire creator's points in the `users` table
+   - System checks if the user has leveled up
+6. **Completion**: Questionnaire creator sees the new response in their responses list
+
+### Questionnaire Deletion
+
+1. **Deletion Trigger**: User clicks delete button on a questionnaire
+2. **Confirmation**: User confirms deletion in a confirmation dialog
+3. **Questionnaire Removal**: 
    - System removes questionnaire from the `project_questionnaires` table
-   - System uses `rewardsService.processReward()` to record activity in `user_activity` table with `project_updated` type
-   - Points are awarded based on the `reward_rules` table
+4. **Activity Recording**: 
+   - System creates a standardized activity record using `createActivityRecord` helper function
+   - Activity type is set to `project_updated`
+   - Metadata includes questionnaireTitle, projectId, and timestamp
+   - System performs duplicate check to ensure only ONE activity is recorded
+   - System records the activity entry in `user_activity` table via `rewardsService.processReward()`
+   - Points are determined from the `reward_rules` table (5 points, subject to 24-hour cooldown)
+5. **Points Update**: 
+   - System updates the user's points in the `users` table if eligible
+   - System checks if the user has leveled up
+6. **Completion**: User sees the updated questionnaires list without the deleted questionnaire
+
+### Improved Questionnaire Activity Recording
+
+The questionnaire activity recording process uses the standardized approach:
+
+```typescript
+// Example of recording a questionnaire creation activity
+await rewardsService.processReward({
+  userId: user.id,
+  activityType: "questionnaire_created",
+  description: `Created questionnaire: ${questionnaire.title}`,
+  projectId: questionnaire.project_id,
+  metadata: { questionnaireTitle: questionnaire.title },
+});
+
+// Example of recording a questionnaire response activity
+await rewardsService.processReward({
+  userId: questionnaire.created_by, // Points go to questionnaire creator
+  activityType: "questionnaire_response",
+  description: `Received response for questionnaire: ${questionnaire.title}`,
+  projectId: questionnaire.project_id,
+  metadata: { questionnaireTitle: questionnaire.title, responseId: responseData.id },
+});
+```
+
+## Login Streak Reward Flow
+
+1. **Login Trigger**: User logs in to the platform
+2. **Hook Activation**: `useLoginStreak()` hook is triggered
+3. **Duplicate Check**: System checks if the user has already logged in today
+4. **Streak Processing**: If not already logged in today, the `daily-streak` edge function is invoked
+5. **Streak Calculation**: 
+   - If the last login was yesterday, increment streak
+   - If the last login was earlier, reset streak to 1
+6. **Points Calculation**: System calculates bonus points based on streak length
+7. **Points Award**: Base points (5) plus bonus points are awarded
+8. **Activity Recording**: 
+   - System creates a standardized activity record using `createActivityRecord` helper function
+   - Activity type is set to `daily_login`
+   - Metadata includes streak, maxStreak, bonusPoints, and timestamp
+   - System performs duplicate check to ensure only ONE activity is recorded
+   - System records the activity entry in `user_activity` and `user_login_history` tables
+   - Points are determined from the base daily login (5) plus streak bonus
+9. **User Update**: User's streak information is updated in the `users` table
+10. **Notification**: If a milestone streak is reached, special notifications are shown
+
+### Improved Login Streak Activity Recording
+
+The login streak activity recording process uses the standardized approach:
+
+```typescript
+// Example of recording a daily login with streak bonus
+const metadata = {
+  loginDate: new Date().toISOString(),
+  streak: streakData.streak,
+  maxStreak: streakData.maxStreak,
+  bonusPoints: streakData.bonusPoints || 0,
+  streakBroken: streakData.streakBroken || false,
+  newRecord: streakData.newRecord || false,
+};
+
+await rewardsService.processReward({
+  userId,
+  activityType: "daily_login",
+  description: streakData.message || "Daily login reward",
+  metadata,
+});
+```
 
 ## Implementation Details
 
@@ -170,6 +371,8 @@ Activity recording is handled by the `rewardsService.processReward()` function, 
 2. Determines the correct point value from the `reward_rules` table
 3. Records the activity in the `user_activity` table
 4. Updates the user's points using the `gamificationService`
+5. Dispatches an `award:received` custom event with reward details
+6. Triggers an animated toast notification to provide immediate feedback
 
 ### Points Update
 
@@ -180,13 +383,63 @@ Points updates are handled by the `gamificationService.awardPoints()` function, 
 3. Updates the `users` table with the new points and level
 4. Records a level-up activity if applicable
 
-## Error Handling
+## Fallback Mechanisms
 
-The system includes fallback mechanisms to ensure activities and points are recorded even if parts of the process fail:
+The system includes several fallback mechanisms to ensure reliability:
 
-1. If the edge function for gamification fails, direct database updates are attempted
-2. If activity recording fails, simplified retry attempts are made
-3. If points synchronization is needed, the `syncPointsService` can reconcile discrepancies
+1. **Edge Function Fallback**: If the gamification edge function fails, direct database updates are attempted
+2. **Activity Recording Fallback**: If activity recording fails, simplified retry attempts are made
+3. **Points Update Fallback**: If points cannot be updated through the primary method, alternative update paths are tried
+4. **Duplicate Prevention**: Multiple checks are implemented to prevent duplicate activity records
+5. **Points Synchronization**: The `syncPointsService` can reconcile discrepancies between activity points and user total points
+
+These fallbacks ensure that users receive their rewards even if parts of the system experience temporary issues.
+
+### Standardized Reward Processing
+
+All activity types use the `rewardsService.processReward()` function as the standard entry point for recording activities and awarding points:
+
+```typescript
+// Standard reward processing pattern used across all activity types
+await rewardsService.processReward({
+  userId: user.id,
+  activityType: "activity_type", // e.g., "project_created", "goal_completed", etc.
+  description: "Human-readable description of the activity",
+  projectId: "optional-project-id", // If activity is related to a project
+  metadata: { /* Additional contextual information */ },
+});
+```
+
+This standardized approach ensures consistent handling of:
+1. Eligibility checks (limits, cooldowns)
+2. Duplicate prevention
+3. Activity recording
+4. Points awarding
+5. Level-up detection
+6. User feedback via animated toast notifications
+7. Error handling and fallbacks
+
+### Award Notification Workflow
+
+When points are awarded, the system provides immediate visual feedback through the following workflow:
+
+1. **Reward Processing**: `rewardsService.processReward()` determines if points should be awarded
+2. **Event Dispatch**: If points are awarded, a custom `award:received` event is dispatched with details:
+   - Points amount
+   - Title (e.g., "Points Awarded!", "Level Up!")
+   - Description (e.g., "Awarded 10 points!")
+   - Variant (default, achievement, streak, level)
+3. **Event Listening**: The `AwardToastListener` component listens for the `award:received` event
+4. **Toast Display**: When an event is received, the listener calls `showAwardToast()` from the `useAwardToast` hook
+5. **Visual Feedback**: An animated toast notification appears with:
+   - Appropriate icon based on the award type
+   - Points amount with animation
+   - Title and description
+   - Color scheme matching the award type
+   - Progress bar indicating automatic dismissal timing
+6. **Automatic Dismissal**: The toast automatically dismisses after 5 seconds
+
+This workflow ensures users receive immediate, visually appealing feedback for their actions, enhancing the gamification experience.
 
 ## Maintenance
 
@@ -199,4 +452,4 @@ This document should be updated whenever:
 
 ## Last Updated
 
-This documentation was last updated on: August 15, 2024
+This documentation was last updated on: September 25, 2024

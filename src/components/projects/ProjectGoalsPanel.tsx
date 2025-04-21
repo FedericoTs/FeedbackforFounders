@@ -52,6 +52,14 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "../../../supabase/auth";
 import { projectService, ProjectGoal } from "@/services/project";
+// Import the standardized workflow functions instead of direct activity service
+// import { activityService } from "@/services/activity";
+import {
+  processGoalCreationActivity,
+  processGoalUpdateActivity,
+  processGoalCompletionActivity,
+  processGoalDeletionActivity,
+} from "@/lib/activityWorkflows";
 import {
   BarChart2,
   Check,
@@ -123,37 +131,26 @@ const ProjectGoalsPanel = ({ projectId }: ProjectGoalsPanelProps) => {
         return;
       }
 
+      // Step 1-3: Data validation and preparation
+      console.log("Goal creation workflow: Validating and preparing data");
+
+      // Step 4: Goal Persistence - Save goal details to the project_goals table
+      console.log("Goal creation workflow: Persisting goal data");
       const createdGoal = await projectService.createProjectGoal(
         newGoal as Omit<ProjectGoal, "id" | "created_at" | "updated_at">,
         user.id,
       );
 
-      // Process reward for goal creation
-      try {
-        const { rewardsService } = await import("@/services/rewards");
-        const rewardResult = await rewardsService.processReward({
-          userId: user.id,
-          activityType: "goal_created",
-          description: `Created goal: ${newGoal.title} for project`,
-          projectId: projectId,
-          metadata: { goalTitle: newGoal.title, goalType: newGoal.goal_type },
-        });
-
-        if (rewardResult.success && rewardResult.points > 0) {
-          toast({
-            title: "Points Earned",
-            description: rewardResult.message,
-          });
-        }
-      } catch (rewardError) {
-        console.error("Error processing goal creation reward:", rewardError);
-        // Continue execution even if reward processing fails
-      }
-
-      toast({
-        title: "Success",
-        description: "Goal created successfully",
+      // Step 5-6: Activity Recording and Points Update using standardized workflow function
+      await processGoalCreationActivity({
+        userId: user.id,
+        goalTitle: newGoal.title,
+        goalType: newGoal.goal_type,
+        projectId: projectId,
       });
+
+      // Step 7: Completion - Reset form (reward toast is handled by activityWorkflows)
+      console.log("Goal creation workflow: Completing process");
 
       // Reset form and close dialog
       setNewGoal({
@@ -181,16 +178,27 @@ const ProjectGoalsPanel = ({ projectId }: ProjectGoalsPanelProps) => {
     try {
       if (!user || !editingGoal) return;
 
-      await projectService.updateProjectGoal(
+      // Step 1-3: Data validation and preparation
+      console.log("Goal update workflow: Validating and preparing data");
+
+      // Step 4: Goal Update Persistence - Update goal details in the project_goals table
+      console.log("Goal update workflow: Persisting goal updates");
+      const updatedGoal = await projectService.updateProjectGoal(
         editingGoal.id,
         editingGoal,
         user.id,
       );
 
-      toast({
-        title: "Success",
-        description: "Goal updated successfully",
+      // Step 5-6: Activity Recording and Points Update using standardized workflow function
+      await processGoalUpdateActivity({
+        userId: user.id,
+        goalTitle: editingGoal.title,
+        goalType: editingGoal.goal_type,
+        projectId: editingGoal.project_id,
       });
+
+      // Step 7: Completion - Reset form (reward toast is handled by activityWorkflows)
+      console.log("Goal update workflow: Completing process");
 
       setEditingGoal(null);
       fetchGoals();
@@ -208,12 +216,29 @@ const ProjectGoalsPanel = ({ projectId }: ProjectGoalsPanelProps) => {
     try {
       if (!user) return;
 
+      // Step 1-2: Confirmation handled by the AlertDialog component
+      console.log("Goal deletion workflow: Confirmation received");
+
+      // Get goal details before deletion for activity recording
+      const goalToDelete = goals.find((goal) => goal.id === goalId);
+      if (!goalToDelete) {
+        throw new Error("Goal not found");
+      }
+
+      // Step 3: Goal Removal - Remove goal from the project_goals table
+      console.log("Goal deletion workflow: Removing goal");
       await projectService.deleteProjectGoal(goalId, user.id);
 
-      toast({
-        title: "Success",
-        description: "Goal deleted successfully",
+      // Step 4-5: Activity Recording and Points Update using standardized workflow function
+      await processGoalDeletionActivity({
+        userId: user.id,
+        goalTitle: goalToDelete.title,
+        goalType: goalToDelete.goal_type,
+        projectId: goalToDelete.project_id,
       });
+
+      // Step 6: Completion - Refresh goals (reward toast is handled by activityWorkflows)
+      console.log("Goal deletion workflow: Completing process");
 
       fetchGoals();
     } catch (error) {
@@ -230,38 +255,26 @@ const ProjectGoalsPanel = ({ projectId }: ProjectGoalsPanelProps) => {
     try {
       if (!user) return;
 
+      // Step 1: Status Update - Update goal status to "completed" in the project_goals table
+      console.log("Goal completion workflow: Updating status");
       await projectService.updateProjectGoal(
         goal.id,
         { status: "completed" },
         user.id,
       );
 
-      // Process reward for goal completion
-      try {
-        const { rewardsService } = await import("@/services/rewards");
-        const rewardResult = await rewardsService.processReward({
-          userId: user.id,
-          activityType: "goal_completed",
-          description: `Completed goal: ${goal.title}`,
-          projectId: goal.project_id,
-          metadata: { goalTitle: goal.title, goalType: goal.goal_type },
-        });
-
-        if (rewardResult.success && rewardResult.points > 0) {
-          toast({
-            title: "Points Earned",
-            description: rewardResult.message,
-          });
-        }
-      } catch (rewardError) {
-        console.error("Error processing goal completion reward:", rewardError);
-        // Continue execution even if reward processing fails
-      }
-
-      toast({
-        title: "Success",
-        description: "Goal marked as completed",
+      // Step 3-4: Activity Recording and Points Update using standardized workflow function
+      await processGoalCompletionActivity({
+        userId: user.id,
+        goalTitle: goal.title,
+        goalType: goal.goal_type,
+        projectId: goal.project_id,
+        currentValue: goal.current_value,
+        targetValue: goal.target_value,
       });
+
+      // Step 5: Completion - Refresh goals (reward toast is handled by activityWorkflows)
+      console.log("Goal completion workflow: Completing process");
 
       fetchGoals();
     } catch (error) {

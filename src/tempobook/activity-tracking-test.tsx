@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { activityService } from "@/services/activity";
-import { projectService } from "@/services/project";
+import { processGoalCreationActivity } from "@/lib/activityWorkflows";
 import { useAuth } from "../../supabase/auth";
+import { supabase } from "../../supabase/supabase";
 
 const ActivityTrackingTest = () => {
   const { user } = useAuth();
@@ -16,6 +17,7 @@ const ActivityTrackingTest = () => {
   const [projectDescription, setProjectDescription] = useState(
     "This is a test project created from the activity tracking test tool.",
   );
+  const [result, setResult] = useState(null);
 
   useEffect(() => {
     if (user) {
@@ -68,37 +70,38 @@ const ActivityTrackingTest = () => {
     }
   };
 
-  const createTestProject = async () => {
+  const testGoalCreation = async () => {
     if (!user) {
-      alert("Please log in to create a test project");
+      alert("Please log in to test goal creation");
       return;
     }
 
     try {
       setLoading(true);
-      const project = await projectService.createProject(
-        {
-          title: projectTitle,
-          description: projectDescription,
-          visibility: "public",
-          category: "test",
-          tags: ["test", "activity-tracking"],
-        },
-        user.id,
-      );
+      // Use a fixed project ID for testing or create a new one
+      const projectId = "test-project-id";
 
-      alert(`Test project created successfully! ID: ${project.id}`);
+      const testResult = await processGoalCreationActivity({
+        userId: user.id,
+        goalTitle: "Test Goal " + new Date().toISOString().substring(0, 19),
+        goalType: "milestone",
+        projectId,
+      });
+
+      setResult(testResult);
+      alert(`Goal creation test result: ${JSON.stringify(testResult)}`);
       fetchActivities();
     } catch (error) {
-      console.error("Error creating test project:", error);
-      alert(`Error creating test project: ${error.message || "Unknown error"}`);
+      console.error("Error testing goal creation:", error);
+      alert(`Error testing goal creation: ${error.message || "Unknown error"}`);
+      setResult({ error: String(error) });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 max-w-4xl mx-auto bg-white">
       <Card className="mb-6">
         <CardHeader>
           <CardTitle>Activity Tracking Test Suite</CardTitle>
@@ -106,47 +109,31 @@ const ActivityTrackingTest = () => {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <h3 className="text-lg font-medium mb-4">Create Test Activity</h3>
+              <h3 className="text-lg font-medium mb-4">Test Actions</h3>
               <Button
                 onClick={createTestActivity}
-                className="bg-teal-500 hover:bg-teal-600 mb-4"
+                className="bg-teal-500 hover:bg-teal-600 mb-4 w-full"
                 disabled={loading || !user}
               >
                 Create Test Activity
               </Button>
 
-              <h3 className="text-lg font-medium mb-4 mt-6">
-                Create Test Project
-              </h3>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="projectTitle">Project Title</Label>
-                  <Input
-                    id="projectTitle"
-                    value={projectTitle}
-                    onChange={(e) => setProjectTitle(e.target.value)}
-                    className="mb-2"
-                  />
+              <Button
+                onClick={testGoalCreation}
+                className="bg-blue-500 hover:bg-blue-600 mb-4 w-full"
+                disabled={loading || !user}
+              >
+                Test Goal Creation Activity
+              </Button>
+
+              {result && (
+                <div className="mt-4 p-4 bg-gray-100 rounded-md">
+                  <h3 className="font-semibold mb-2">Result:</h3>
+                  <pre className="text-xs overflow-auto">
+                    {JSON.stringify(result, null, 2)}
+                  </pre>
                 </div>
-                <div>
-                  <Label htmlFor="projectDescription">
-                    Project Description
-                  </Label>
-                  <Textarea
-                    id="projectDescription"
-                    value={projectDescription}
-                    onChange={(e) => setProjectDescription(e.target.value)}
-                    className="mb-4"
-                  />
-                </div>
-                <Button
-                  onClick={createTestProject}
-                  className="bg-blue-500 hover:bg-blue-600"
-                  disabled={loading || !user}
-                >
-                  Create Test Project
-                </Button>
-              </div>
+              )}
             </div>
 
             <div>
@@ -175,6 +162,16 @@ const ActivityTrackingTest = () => {
                           <p className="text-xs text-teal-600">
                             Points: {activity.points}
                           </p>
+                        )}
+                        {activity.metadata && (
+                          <details className="mt-1">
+                            <summary className="text-xs cursor-pointer text-slate-500">
+                              Metadata
+                            </summary>
+                            <pre className="text-xs mt-1 p-2 bg-slate-50 rounded">
+                              {JSON.stringify(activity.metadata, null, 2)}
+                            </pre>
+                          </details>
                         )}
                       </li>
                     ))}

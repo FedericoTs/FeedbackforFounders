@@ -274,6 +274,11 @@ export const activityService = {
         }
       }
 
+      // Add additional logging for debugging
+      console.log(
+        `[Activity Service] No duplicate found for ${activity_type}, proceeding with insert`,
+      );
+
       // Ensure metadata is an object
       const safeMetadata =
         typeof metadata === "object" && metadata !== null ? metadata : {};

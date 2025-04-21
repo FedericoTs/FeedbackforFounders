@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../../supabase/auth";
 import { useToast } from "@/components/ui/use-toast";
 import { rewardsService } from "@/services/rewards";
+import { supabase } from "../../supabase/supabase";
 
 /**
  * Hook to check for and process daily login rewards
@@ -68,14 +69,10 @@ export function useLoginReward() {
         console.error("[Login Reward] Error syncing user points:", syncError);
       }
 
-      // Show toast notification if points were awarded
+      // Reward toast is handled by the rewardsService.processReward function
+      // If for some reason the toast didn't show, we could add a fallback here
       if (rewardResult.success && rewardResult.points > 0) {
-        toast({
-          title: "Daily Login Reward",
-          description:
-            rewardResult.message ||
-            `You earned ${rewardResult.points} points for logging in today!`,
-        });
+        console.log("[Login Reward] Successfully processed login reward");
       }
     } catch (error) {
       console.error("Error processing login reward:", error);
