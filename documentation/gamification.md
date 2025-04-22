@@ -14,7 +14,8 @@ Points are the primary currency of the gamification system, awarded for various 
 |--------------|--------|-------------|--------|
 | `project_created` | 20 | Creating a new project | Max 3 rewarded projects |
 | `project_updated` | 5 | Updating an existing project | 24-hour cooldown |
-| `feedback_given` | 10 | Providing feedback on a project | No limit |
+| `feedback_given` | 10 | Providing basic feedback on a project | No limit |
+| `feedback_quality` | 5-25 | Quality multiplier for detailed, actionable feedback | Based on AI analysis |
 | `feedback_received` | 5 | Receiving feedback on your project | No limit |
 | `goal_created` | 5 | Creating a project goal | No limit |
 | `goal_completed` | 15 | Completing a project goal | No limit |
@@ -76,6 +77,9 @@ Achievements are special recognitions for accomplishing specific goals:
 |-------------|--------------|---------------|
 | First Project | Create your first project | 50 |
 | Feedback Champion | Give feedback to 10 different projects | 100 |
+| Quality Reviewer | Achieve an average feedback quality score of 0.8+ | 150 |
+| Section Specialist | Provide feedback on all sections of a project | 75 |
+| Critical Eye | Identify important issues that project owners implement | 100 |
 | Goal Setter | Create 5 project goals | 75 |
 | Goal Achiever | Complete 10 project goals | 150 |
 | Week Streak | Maintain a 7-day login streak | 50 |
@@ -283,3 +287,48 @@ This documentation should be updated when:
 ## Last Updated
 
 This documentation was last updated on: September 25, 2024
+
+### Points Calculation Algorithm
+
+```
+Base points: 10 points per feedback submission
+Quality multipliers:
+- Specificity: 0.5-2x based on specificity_score
+- Actionability: 0.5-2x based on actionability_score
+- Comprehensiveness: 0.5-2x based on length and detail
+- Novelty: 0.5-2x based on uniqueness vs. existing feedback
+
+Decay formula for similar feedback:
+points = base_points * (1 - (similarity_score * 0.8))
+
+Cap: Maximum 50 points per feedback
+Bonus: +5 points for each section covered beyond minimum
+```
+
+### Feedback Quality Point Calculation
+
+The feedback quality scoring system awards points based on AI-analyzed metrics:
+
+```
+// Base calculation
+let qualityPoints = baseFeedbackPoints;
+
+// Apply multipliers based on AI analysis
+qualityPoints *= (0.5 + (specificityScore * 1.5)); // 0.5-2x multiplier
+qualityPoints *= (0.5 + (actionabilityScore * 1.5)); // 0.5-2x multiplier
+
+// Apply length/detail multiplier (based on content length and structure)
+const detailMultiplier = calculateDetailMultiplier(content);
+qualityPoints *= detailMultiplier; // 0.5-2x multiplier
+
+// Apply novelty multiplier (if similar to existing feedback)
+if (similarityScore > 0) {
+  qualityPoints *= (1 - (similarityScore * 0.8));
+}
+
+// Apply section coverage bonus
+qualityPoints += (sectionsWithFeedback - minimumSections) * 5;
+
+// Cap at maximum
+qualityPoints = Math.min(qualityPoints, 50);
+```

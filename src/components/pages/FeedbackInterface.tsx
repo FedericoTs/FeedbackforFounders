@@ -168,18 +168,75 @@ const FeedbackInterface = () => {
     setNewFeedbackPosition({ x, y });
   };
 
-  const handleSubmitFeedback = () => {
-    // In a real app, submit feedback to the database
-    console.log("Submitting feedback:", {
-      position: newFeedbackPosition,
-      text: feedbackText,
-      rating: feedbackRating,
-    });
+  const handleSubmitFeedback = async () => {
+    try {
+      // In a real app, this would use the feedbackService
+      console.log("Submitting feedback:", {
+        position: newFeedbackPosition,
+        text: feedbackText,
+        rating: feedbackRating,
+      });
 
-    // Reset feedback form
-    setNewFeedbackMode(false);
-    setFeedbackText("");
-    setFeedbackRating(4);
+      // Simulate feedback submission and quality analysis
+      // This would normally call feedbackService.submitFeedback()
+
+      // Simulate quality metrics based on feedback length and rating
+      const specificityScore = Math.min(0.9, feedbackText.length / 300);
+      const actionabilityScore = Math.min(
+        0.9,
+        feedbackText.includes("should") ||
+          feedbackText.includes("could") ||
+          feedbackText.includes("would")
+          ? 0.8
+          : 0.5,
+      );
+      const noveltyScore = 0.7; // Simulated value
+
+      // Calculate quality points (simplified version of the algorithm)
+      const qualityScore =
+        (specificityScore + actionabilityScore + noveltyScore) / 3;
+      const qualityPoints = Math.round(qualityScore * 25);
+
+      // Simulate award toast for base feedback points
+      setTimeout(() => {
+        const baseFeedbackEvent = new CustomEvent("award:received", {
+          detail: {
+            points: 10,
+            title: "Feedback Submitted!",
+            description: "Thanks for providing feedback",
+            variant: "default",
+          },
+        });
+        window.dispatchEvent(baseFeedbackEvent);
+      }, 500);
+
+      // If quality score is good, show quality bonus toast
+      if (qualityScore > 0.6 && feedbackText.length > 100) {
+        setTimeout(() => {
+          const qualityFeedbackEvent = new CustomEvent("award:received", {
+            detail: {
+              points: qualityPoints,
+              title: "Quality Feedback!",
+              description: `Your detailed feedback earned you ${qualityPoints} bonus points!`,
+              variant: "feedback",
+              metadata: {
+                specificityScore,
+                actionabilityScore,
+                noveltyScore,
+              },
+            },
+          });
+          window.dispatchEvent(qualityFeedbackEvent);
+        }, 2000); // Show after the base points toast
+      }
+
+      // Reset feedback form
+      setNewFeedbackMode(false);
+      setFeedbackText("");
+      setFeedbackRating(4);
+    } catch (error) {
+      console.error("Error submitting feedback:", error);
+    }
   };
 
   const handleCancelFeedback = () => {

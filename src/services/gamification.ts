@@ -294,6 +294,7 @@ export const gamificationService = {
   getPointValues(): Record<ActivityType, number> {
     return {
       feedback_given: 10,
+      feedback_quality: 25, // Maximum quality bonus
       feedback_received: 5,
       project_created: 20,
       project_updated: 5,

@@ -20,12 +20,14 @@ export function AwardToastListener() {
           title,
           description,
           variant = "default",
+          metadata,
         } = event.detail;
         showAwardToast({
           points,
           title,
           description,
           variant,
+          metadata,
         });
       } catch (error) {
         console.error("Error showing award toast:", error);

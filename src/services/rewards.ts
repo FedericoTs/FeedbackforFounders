@@ -42,6 +42,12 @@ export const rewardsService = {
         description: "Provided feedback on a project",
         enabled: true,
       },
+      feedback_quality: {
+        activityType: "feedback_quality",
+        points: 25, // Maximum quality bonus (actual points calculated dynamically)
+        description: "Provided high-quality feedback",
+        enabled: true,
+      },
       feedback_received: {
         activityType: "feedback_received",
         points: 5,
