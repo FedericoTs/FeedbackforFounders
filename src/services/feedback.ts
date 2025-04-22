@@ -34,6 +34,25 @@ export const feedbackService = {
     message?: string;
   }> {
     try {
+      // Check if user has already submitted feedback for this section and category
+      const { data: existingFeedback, error: checkError } = await supabase
+        .from("feedback")
+        .select("id")
+        .eq("project_id", feedback.projectId)
+        .eq("user_id", feedback.userId)
+        .eq("section_id", feedback.sectionId)
+        .eq("category", feedback.category)
+        .limit(1);
+
+      if (checkError) {
+        console.error("Error checking existing feedback:", checkError);
+      } else if (existingFeedback && existingFeedback.length > 0) {
+        return {
+          success: false,
+          message: `You have already provided ${feedback.category} feedback for this section. Please choose a different category or section.`,
+        };
+      }
+
       // First, analyze feedback quality using AI
       const qualityMetrics = await this.analyzeFeedbackQuality(
         feedback.content,
@@ -58,6 +77,7 @@ export const feedbackService = {
           screenshot_url: feedback.screenshotUrl,
           screenshot_annotations: feedback.screenshotAnnotations,
           quick_reactions: feedback.quickReactions,
+          page_url: feedback.pageUrl, // Store the current page URL
         })
         .select("id")
         .single();

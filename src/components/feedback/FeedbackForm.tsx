@@ -3,7 +3,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Star, Send, Camera, X } from "lucide-react";
+import { Star, Send, X } from "lucide-react";
 import { ProjectSection } from "./ProjectSectionMap";
 
 interface FeedbackFormProps {
@@ -12,7 +12,6 @@ interface FeedbackFormProps {
     content: string;
     rating: number;
     category: string;
-    screenshotUrl?: string;
   }) => Promise<void>;
   onCancel: () => void;
   isSubmitting: boolean;
@@ -49,33 +48,22 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({
   const [selectedCategory, setSelectedCategory] = useState(
     FEEDBACK_CATEGORIES[0].id,
   );
-  const [screenshotUrl, setScreenshotUrl] = useState<string | undefined>();
 
   const handleSubmit = async () => {
     await onSubmit({
       content: feedbackText,
       rating,
       category: selectedCategory,
-      screenshotUrl,
     });
 
     // Reset form
     setFeedbackText("");
     setRating(4);
     setSelectedCategory(FEEDBACK_CATEGORIES[0].id);
-    setScreenshotUrl(undefined);
-  };
-
-  // Mock function to simulate taking a screenshot
-  const handleTakeScreenshot = () => {
-    // In a real implementation, this would capture the actual section
-    setScreenshotUrl(
-      "https://images.unsplash.com/photo-1517292987719-0369a794ec0f?w=800&q=80",
-    );
   };
 
   return (
-    <div className="p-4 border-t border-slate-200 dark:border-slate-700">
+    <div className="p-4 h-full overflow-auto">
       {!section ? (
         <div className="text-center py-6">
           <p className="text-slate-500 dark:text-slate-400">
@@ -111,16 +99,33 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({
                 Category
               </label>
               <div className="flex flex-wrap gap-2">
-                {FEEDBACK_CATEGORIES.map((category) => (
-                  <Badge
-                    key={category.id}
-                    className={`cursor-pointer ${selectedCategory === category.id ? category.color : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"}`}
-                    onClick={() => setSelectedCategory(category.id)}
-                  >
-                    {category.label}
-                  </Badge>
-                ))}
+                {FEEDBACK_CATEGORIES.map((category) => {
+                  const isDisabled = disabledCategories.includes(category.id);
+                  return (
+                    <Badge
+                      key={category.id}
+                      className={`${isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"} ${selectedCategory === category.id ? category.color : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"}`}
+                      onClick={() =>
+                        !isDisabled && setSelectedCategory(category.id)
+                      }
+                    >
+                      {category.label}
+                      {isDisabled && (
+                        <AlertCircle
+                          className="h-3 w-3 ml-1"
+                          title="You've already provided feedback in this category"
+                        />
+                      )}
+                    </Badge>
+                  );
+                })}
               </div>
+              {disabledCategories.length > 0 && (
+                <p className="text-xs text-amber-600 mt-1">
+                  <AlertCircle className="h-3 w-3 inline mr-1" />
+                  You can only provide one feedback per section per category
+                </p>
+              )}
             </div>
 
             <div>
@@ -141,37 +146,6 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({
                   </button>
                 ))}
               </div>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium text-slate-900 dark:text-white block mb-2">
-                Visual Reference
-              </label>
-              {screenshotUrl ? (
-                <div className="relative">
-                  <img
-                    src={screenshotUrl}
-                    alt="Screenshot"
-                    className="w-full h-auto rounded-md border border-slate-200 dark:border-slate-700"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="absolute top-2 right-2 bg-white dark:bg-slate-800"
-                    onClick={() => setScreenshotUrl(undefined)}
-                  >
-                    <X className="h-4 w-4 mr-1" /> Remove
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  variant="outline"
-                  onClick={handleTakeScreenshot}
-                  className="w-full"
-                >
-                  <Camera className="h-4 w-4 mr-2" /> Capture Screenshot
-                </Button>
-              )}
             </div>
 
             <Separator />
