@@ -99,33 +99,16 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({
                 Category
               </label>
               <div className="flex flex-wrap gap-2">
-                {FEEDBACK_CATEGORIES.map((category) => {
-                  const isDisabled = disabledCategories.includes(category.id);
-                  return (
-                    <Badge
-                      key={category.id}
-                      className={`${isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"} ${selectedCategory === category.id ? category.color : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"}`}
-                      onClick={() =>
-                        !isDisabled && setSelectedCategory(category.id)
-                      }
-                    >
-                      {category.label}
-                      {isDisabled && (
-                        <AlertCircle
-                          className="h-3 w-3 ml-1"
-                          title="You've already provided feedback in this category"
-                        />
-                      )}
-                    </Badge>
-                  );
-                })}
+                {FEEDBACK_CATEGORIES.map((category) => (
+                  <Badge
+                    key={category.id}
+                    className={`cursor-pointer ${selectedCategory === category.id ? category.color : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"}`}
+                    onClick={() => setSelectedCategory(category.id)}
+                  >
+                    {category.label}
+                  </Badge>
+                ))}
               </div>
-              {disabledCategories.length > 0 && (
-                <p className="text-xs text-amber-600 mt-1">
-                  <AlertCircle className="h-3 w-3 inline mr-1" />
-                  You can only provide one feedback per section per category
-                </p>
-              )}
             </div>
 
             <div>

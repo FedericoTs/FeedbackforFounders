@@ -873,10 +873,6 @@ const FeedbackInterface = () => {
                           onSubmit={handleSubmitFeedback}
                           onCancel={handleCancelFeedback}
                           isSubmitting={isSubmitting}
-                          existingFeedback={feedback.filter(
-                            (f) => f.sectionId === activeSection,
-                          )}
-                          currentUser={user?.user_metadata}
                         />
                       </Card>
                     </div>
