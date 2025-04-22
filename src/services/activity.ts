@@ -29,7 +29,15 @@ export interface QuestionnaireActivityMetadata extends BaseActivityMetadata {
 export interface FeedbackActivityMetadata extends BaseActivityMetadata {
   projectId: string;
   feedbackId?: string;
-  sentiment?: "positive" | "negative" | "neutral";
+  sectionId?: string;
+  sectionName?: string;
+  sentiment?: number; // -1 to 1 range
+  specificityScore?: number;
+  actionabilityScore?: number;
+  noveltyScore?: number;
+  qualityScore?: number;
+  category?: string;
+  subcategory?: string;
 }
 
 export interface LoginActivityMetadata extends BaseActivityMetadata {
@@ -101,7 +109,14 @@ export function generateActivityDescription(
         : "Received a questionnaire response";
 
     case "feedback_given":
-      return "Provided feedback on a project";
+      return metadata && "sectionName" in metadata
+        ? `Provided feedback on ${metadata.sectionName}`
+        : "Provided feedback on a project";
+
+    case "feedback_quality":
+      return metadata && "qualityScore" in metadata
+        ? `Provided high-quality feedback (${Math.round((metadata.qualityScore as number) * 100)}%)`
+        : "Provided high-quality feedback";
 
     case "feedback_received":
       return "Received feedback on your project";

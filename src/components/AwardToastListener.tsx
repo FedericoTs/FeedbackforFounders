@@ -5,7 +5,8 @@ interface AwardEventDetail {
   points: number;
   title: string;
   description: string;
-  variant?: "default" | "achievement" | "streak" | "level";
+  variant?: "default" | "achievement" | "streak" | "level" | "feedback";
+  metadata?: any;
 }
 
 export function AwardToastListener() {

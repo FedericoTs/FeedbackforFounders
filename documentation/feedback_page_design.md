@@ -180,48 +180,19 @@ CREATE TABLE project_sections (
 
 ### 4.4 Points Calculation Algorithm
 
-The points calculation aligns with the gamification system defined in `gamification.md`:
+```sql
+Base points: 10 points per feedback submission
+Quality multipliers:
+- Specificity: 0.5-2x based on specificity_score
+- Actionability: 0.5-2x based on actionability_score
+- Comprehensiveness: 0.5-2x based on length and detail
+- Novelty: 0.5-2x based on uniqueness vs. existing feedback
 
-```javascript
-// Base calculation from gamification system
-let points = 10; // Base points for feedback_given activity type
+Decay formula for similar feedback:
+points = base_points * (1 - (similarity_score * 0.8))
 
-// Quality multipliers from AI analysis
-const specificityMultiplier = 0.5 + (specificityScore * 1.5); // 0.5-2x range
-const actionabilityMultiplier = 0.5 + (actionabilityScore * 1.5); // 0.5-2x range
-const comprehensivenessMultiplier = 0.5 + (calculateComprehensiveness(feedback) * 1.5); // 0.5-2x range
-const noveltyMultiplier = similarityScore > 0 ? (1 - (similarityScore * 0.8)) : 1; // Decay for similar feedback
-
-// Apply multipliers
-points *= specificityMultiplier;
-points *= actionabilityMultiplier;
-points *= comprehensivenessMultiplier;
-points *= noveltyMultiplier;
-
-// Section coverage bonus
-const sectionsCovered = feedback.sections.length;
-const minimumSections = 1;
-if (sectionsCovered > minimumSections) {
-  points += (sectionsCovered - minimumSections) * 5;
-}
-
-// Cap at maximum
-points = Math.min(Math.round(points), 50);
-
-// Record in user_activity with feedback_quality activity type
-awaitrewardsService.processReward({
-  userId,
-  activityType: "feedback_quality",
-  points,
-  description: `Quality feedback provided on ${projectName}`,
-  metadata: {
-    projectId,
-    specificityScore,
-    actionabilityScore,
-    noveltyScore,
-    sectionsCovered
-  }
-});
+Cap: Maximum 50 points per feedback
+Bonus: +5 points for each section covered beyond minimum
 ```
 
 ### 4.5 GPT Integration for Feedback Analysis
@@ -317,22 +288,12 @@ Custom prompt template:
 
 ### 7.1 Points System Enhancements
 
-The points system integrates with the core gamification system and includes these feedback-specific enhancements:
-
 - Point multipliers for feedback on newly added projects
-- "First Responder" bonus for early feedback (first 3 reviewers get +5 points)
-- Combo bonuses for completing feedback on all sections (+10 points)
-- Weekly point boost periods for specific project categories (2x points)
-- Achievement-based bonuses for consistent quality feedback
-
-These enhancements work with the existing gamification system's:
-- Daily login streaks
-- Level progression
-- Achievement system
+- "First Responder" bonus for early feedback
+- Combo bonuses for completing feedback on all sections
+- Weekly point boost periods for specific project categories
 
 ### 7.2 Feedback Provider Journey
-
-The feedback provider journey integrates with the platform's gamification level system:
 
 - Leveling system with progressively unlocked capabilities:
   - Level 1: Basic feedback
@@ -341,11 +302,9 @@ The feedback provider journey integrates with the platform's gamification level 
   - Level 20: Early access to new features
   - Level 50: "Guru" status with highlighted feedback
 
-- Feedback-specific achievements (integrated with the main achievement system):
-  - "Feedback Champion" for giving feedback to 10 different projects
-  - "Quality Reviewer" for achieving high average feedback quality scores
-  - "Section Specialist" for providing feedback on all sections of a project
-  - "Critical Eye" for identifying important issues that project owners implement
+- Achievement system:
+  - "Section Specialist" for excellent feedback on specific website aspects
+  - "Critical Eye" for identifying important issues
   - "Full Coverage" for providing feedback on all sections
   - "Consistency" for regular feedback activity
   - "Impact Maker" when project owners implement suggestions

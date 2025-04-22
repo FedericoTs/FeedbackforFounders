@@ -20,9 +20,11 @@ import {
   Flame,
   Gift,
   Loader2,
+  MessageSquare,
   Star,
   Trophy,
   Users,
+  ThumbsUp,
 } from "lucide-react";
 import { profileService } from "@/services/profile";
 import { rewardsService } from "@/services/rewards";
@@ -50,7 +52,6 @@ const RewardsPanel = ({
   const { isProcessing: processingLoginStreak, result: loginStreakResult } =
     useLoginStreak();
 
-  // Use the provided userId or fall back to the authenticated user
   const targetUserId = userId || user?.id;
 
   useEffect(() => {
@@ -63,7 +64,6 @@ const RewardsPanel = ({
     try {
       setLoading(true);
 
-      // Fetch user profile
       const { data: profileData, error: profileError } = await supabase
         .from("users")
         .select("*")
@@ -73,7 +73,6 @@ const RewardsPanel = ({
       if (profileError) throw profileError;
       setUserProfile(profileData);
 
-      // Fetch recent activities with points
       const { data: activities, error: activitiesError } = await supabase
         .from("user_activity")
         .select("*")
@@ -85,7 +84,6 @@ const RewardsPanel = ({
       if (activitiesError) throw activitiesError;
       setRecentActivities(activities || []);
 
-      // Fetch achievements
       const { data: achievementsData, error: achievementsError } =
         await supabase
           .from("user_achievements")
@@ -128,6 +126,8 @@ const RewardsPanel = ({
       Users: <Users className={className} />,
       Check: <Check className={className} />,
       Gift: <Gift className={className} />,
+      MessageSquare: <MessageSquare className={className} />,
+      ThumbsUp: <ThumbsUp className={className} />,
     };
 
     return icons[iconName] || <Star className={className} />;
@@ -155,7 +155,6 @@ const RewardsPanel = ({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Level Progress */}
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <Badge className="bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-400">
@@ -193,7 +192,6 @@ const RewardsPanel = ({
           </div>
         </div>
 
-        {/* Daily Login Reward */}
         {showLoginReward && (
           <div className="bg-gradient-to-r from-teal-50 to-cyan-50 dark:from-teal-900/20 dark:to-cyan-900/20 rounded-lg p-4">
             <div className="flex items-center justify-between">
@@ -219,7 +217,6 @@ const RewardsPanel = ({
                 "Log in daily to earn points and build your streak!"}
             </p>
 
-            {/* Login Streak Display */}
             {loginStreakResult && loginStreakResult.success && (
               <>
                 <Separator className="my-3" />
@@ -232,7 +229,6 @@ const RewardsPanel = ({
           </div>
         )}
 
-        {/* Recent Activities */}
         <div>
           <h4 className="text-sm font-medium mb-3">Recent Point Activity</h4>
           {recentActivities.length > 0 ? (
@@ -278,7 +274,6 @@ const RewardsPanel = ({
           )}
         </div>
 
-        {/* Achievements */}
         <div>
           <h4 className="text-sm font-medium mb-3">Achievements</h4>
           {achievements.length > 0 ? (

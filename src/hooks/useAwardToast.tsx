@@ -7,7 +7,12 @@ import React, {
 } from "react";
 import { AwardToast } from "@/components/ui/award-toast";
 
-type AwardToastVariant = "default" | "achievement" | "streak" | "level";
+type AwardToastVariant =
+  | "default"
+  | "achievement"
+  | "streak"
+  | "level"
+  | "feedback";
 
 interface AwardToastOptions {
   title: string;

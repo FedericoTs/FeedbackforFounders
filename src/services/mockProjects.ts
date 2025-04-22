@@ -1,0 +1,105 @@
+import { Project } from "./project";
+
+// Sample projects for testing when database is empty
+export const sampleProjects: Project[] = [
+  {
+    id: "sample-1",
+    title: "E-commerce Website Redesign",
+    description:
+      "A complete redesign of an e-commerce platform with improved user experience and checkout flow.",
+    category: "Web Design",
+    tags: ["UI/UX", "E-commerce", "Responsive"],
+    visibility: "public",
+    status: "active",
+    featured: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    user_id: "sample-user",
+    thumbnail_url:
+      "https://images.unsplash.com/photo-1517292987719-0369a794ec0f?w=800&q=80",
+    feedback_count: 3,
+    positive_feedback: 2,
+    negative_feedback: 0,
+    neutral_feedback: 1,
+  },
+  {
+    id: "sample-2",
+    title: "Mobile App for Fitness Tracking",
+    description:
+      "A fitness tracking app with workout plans, progress tracking, and social features.",
+    category: "Mobile App",
+    tags: ["Fitness", "Health", "Mobile"],
+    visibility: "public",
+    status: "active",
+    featured: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    user_id: "sample-user",
+    thumbnail_url:
+      "https://images.unsplash.com/photo-1526948128573-703ee1aeb6fa?w=800&q=80",
+    feedback_count: 2,
+    positive_feedback: 1,
+    negative_feedback: 0,
+    neutral_feedback: 1,
+  },
+  {
+    id: "sample-3",
+    title: "Portfolio Website for Photographer",
+    description:
+      "A minimalist portfolio website showcasing a photographer's work with gallery and contact features.",
+    category: "Portfolio",
+    tags: ["Photography", "Portfolio", "Minimalist"],
+    visibility: "public",
+    status: "active",
+    featured: false,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    user_id: "sample-user",
+    thumbnail_url:
+      "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=800&q=80",
+    feedback_count: 1,
+    positive_feedback: 1,
+    negative_feedback: 0,
+    neutral_feedback: 0,
+  },
+  {
+    id: "sample-4",
+    title: "Web App for Project Management",
+    description:
+      "A comprehensive project management tool with task tracking, team collaboration, and reporting features.",
+    category: "Web App",
+    tags: ["Project Management", "Productivity", "Team Collaboration"],
+    visibility: "public",
+    status: "active",
+    featured: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    user_id: "sample-user",
+    thumbnail_url:
+      "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&q=80",
+    feedback_count: 4,
+    positive_feedback: 3,
+    negative_feedback: 1,
+    neutral_feedback: 0,
+  },
+  {
+    id: "sample-5",
+    title: "E-commerce App for Artisanal Products",
+    description:
+      "A marketplace app for artisanal and handcrafted products with secure payment processing and seller profiles.",
+    category: "E-commerce",
+    tags: ["Marketplace", "Artisanal", "E-commerce"],
+    visibility: "public",
+    status: "active",
+    featured: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    user_id: "sample-user",
+    thumbnail_url:
+      "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800&q=80",
+    feedback_count: 2,
+    positive_feedback: 2,
+    negative_feedback: 0,
+    neutral_feedback: 0,
+  },
+];

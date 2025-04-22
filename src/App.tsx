@@ -6,6 +6,7 @@ import SignUpForm from "./components/auth/SignUpForm";
 import Dashboard from "./components/pages/Dashboard";
 import Discovery from "./components/pages/Discovery";
 import FeedbackInterface from "./components/pages/FeedbackInterface";
+import ProjectDiscovery from "./components/pages/ProjectDiscovery";
 import Analytics from "./components/pages/Analytics";
 import Projects from "./components/pages/Projects";
 import ProjectDetails from "./components/pages/ProjectDetails";
@@ -58,11 +59,13 @@ function AppRoutes() {
         >
           <Route index element={<Dashboard />} />
           <Route path="discovery" element={<Discovery />} />
-          <Route path="feedback" element={<FeedbackInterface />} />
-          <Route path="analytics" element={<Analytics />} />
           <Route path="projects" element={<Projects />} />
           <Route path="projects/:projectId" element={<ProjectDetails />} />
           <Route path="profile" element={<Profile />} />
+          <Route path="analytics" element={<Analytics />} />
+          <Route path="feedback" element={<FeedbackInterface />} />
+          <Route path="feedback/:id" element={<FeedbackInterface />} />
+          <Route path="project-discovery" element={<ProjectDiscovery />} />
         </Route>
 
         {/* Add this before any catchall route to allow Tempo to capture routes */}

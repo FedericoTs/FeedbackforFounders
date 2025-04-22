@@ -486,9 +486,6 @@ export const projectService = {
   /**
    * Fetch projects with optional filtering and sorting
    */
-  /**
-   * Fetch projects with optional filtering and sorting
-   */
   async fetchProjects(options: {
     userId?: string;
     filter?: string;
@@ -502,20 +499,33 @@ export const projectService = {
         filter = "all",
         sortBy = "updated_at",
         featured,
+        searchQuery,
       } = options;
 
-      // First, check if the tables exist by fetching a single project
-      const { data: singleProject, error: projectError } = await supabase
-        .from("projects")
-        .select("id")
-        .limit(1);
+      console.log("Fetching projects with options:", options);
 
-      if (projectError) {
-        console.error("Error checking projects table:", projectError);
-        return [];
+      // First, check if the projects table exists by getting its structure
+      try {
+        const { data: tableInfo, error: tableError } = await supabase
+          .from("projects")
+          .select("id")
+          .limit(1);
+
+        if (tableError) {
+          console.error("Error checking projects table:", tableError);
+          console.log("Database table check failed");
+          throw new Error(`Database table check failed: ${tableError.message}`);
+        } else {
+          console.log("Projects table exists and is accessible");
+        }
+      } catch (tableCheckError) {
+        console.error("Exception checking projects table:", tableCheckError);
+        throw new Error(
+          `Database connection error: ${tableCheckError.message}`,
+        );
       }
 
-      // Fetch projects without joins first to avoid 406 errors
+      // Build the query
       let query = supabase.from("projects").select("*");
 
       // Filter by user if provided
@@ -541,73 +551,119 @@ export const projectService = {
       } else if (sortBy === "updated_at") {
         query = query.order("updated_at", { ascending: false });
       } else if (sortBy === "feedback_count") {
-        query = query.order("updated_at", { ascending: false }); // Fallback to updated_at
+        // We'll sort by feedback count after fetching the data
+        query = query.order("updated_at", { ascending: false });
       }
 
-      const { data, error } = await query;
+      console.log("Executing Supabase query for projects");
 
-      if (error) {
-        console.error("Error fetching projects:", error);
+      // Execute the query
+      const { data: projectsData, error: projectsError } = await query;
+
+      if (projectsError) {
+        console.error("Error fetching projects:", projectsError);
+        // Check if this is a PostgreSQL error that might indicate missing tables
+        if (
+          projectsError.message &&
+          projectsError.message.includes("relation")
+        ) {
+          console.error(
+            "This may indicate that the projects table doesn't exist or has incorrect permissions",
+          );
+        }
+        throw new Error(`Failed to fetch projects: ${projectsError.message}`);
+      }
+
+      console.log(
+        `Fetched ${projectsData?.length || 0} projects from database:`,
+        projectsData,
+      );
+
+      // If no projects found, return empty array
+      if (!projectsData || projectsData.length === 0) {
+        console.log("No projects found in the database");
         return [];
       }
 
-      // Try to fetch feedback data separately to avoid 406 errors
-      let feedbackData = {};
+      // Extract project IDs for related queries
+      const projectIds = projectsData.map((project) => project.id);
+
+      // Fetch feedback data - with error handling for missing tables
+      let feedbackData = [];
       try {
-        const { data: feedbackResults, error: feedbackError } = await supabase
+        const { data, error: feedbackError } = await supabase
           .from("project_feedback")
-          .select("project_id, count");
+          .select("project_id, count")
+          .in("project_id", projectIds);
 
-        if (!feedbackError && feedbackResults) {
-          feedbackData = feedbackResults.reduce((acc, item) => {
-            acc[item.project_id] = { count: item.count };
-            return acc;
-          }, {});
+        if (feedbackError) {
+          console.error("Error fetching feedback data:", feedbackError);
+          // Continue without feedback data
+        } else {
+          feedbackData = data || [];
         }
-      } catch (feedbackError) {
-        console.error("Error fetching feedback data:", feedbackError);
+      } catch (feedbackQueryError) {
+        console.error("Exception fetching feedback data:", feedbackQueryError);
+        // Continue without feedback data
       }
 
-      // Try to fetch sentiment data separately
-      let sentimentData = {};
+      // Fetch sentiment data - with error handling for missing tables
+      let sentimentData = [];
       try {
-        const { data: sentimentResults, error: sentimentError } = await supabase
+        const { data, error: sentimentError } = await supabase
           .from("project_feedback_sentiment")
-          .select("project_id, positive, negative, neutral");
+          .select("project_id, positive, negative, neutral")
+          .in("project_id", projectIds);
 
-        if (!sentimentError && sentimentResults) {
-          sentimentData = sentimentResults.reduce((acc, item) => {
-            acc[item.project_id] = {
-              positive: item.positive,
-              negative: item.negative,
-              neutral: item.neutral,
-            };
-            return acc;
-          }, {});
+        if (sentimentError) {
+          console.error("Error fetching sentiment data:", sentimentError);
+          // Continue without sentiment data
+        } else {
+          sentimentData = data || [];
         }
-      } catch (sentimentError) {
-        console.error("Error fetching sentiment data:", sentimentError);
+      } catch (sentimentQueryError) {
+        console.error(
+          "Exception fetching sentiment data:",
+          sentimentQueryError,
+        );
+        // Continue without sentiment data
       }
 
-      // Process the data to include feedback counts
-      const processedData = data.map((project) => ({
+      // Create lookup maps for feedback and sentiment data
+      const feedbackMap = (feedbackData || []).reduce((acc, item) => {
+        acc[item.project_id] = item.count;
+        return acc;
+      }, {});
+
+      const sentimentMap = (sentimentData || []).reduce((acc, item) => {
+        acc[item.project_id] = {
+          positive: item.positive,
+          negative: item.negative,
+          neutral: item.neutral,
+        };
+        return acc;
+      }, {});
+
+      // Combine all data
+      let processedProjects = projectsData.map((project) => ({
         ...project,
-        feedback_count: feedbackData[project.id]?.count || 0,
-        positive_feedback: sentimentData[project.id]?.positive || 0,
-        negative_feedback: sentimentData[project.id]?.negative || 0,
-        neutral_feedback: sentimentData[project.id]?.neutral || 0,
+        feedback_count: feedbackMap[project.id] || 0,
+        positive_feedback: sentimentMap[project.id]?.positive || 0,
+        negative_feedback: sentimentMap[project.id]?.negative || 0,
+        neutral_feedback: sentimentMap[project.id]?.neutral || 0,
       }));
 
       // Apply search filter if provided
-      const { searchQuery } = options;
       if (searchQuery) {
-        return processedData.filter((project) => {
-          const searchLower = searchQuery.toLowerCase();
+        const searchLower = searchQuery.toLowerCase();
+        processedProjects = processedProjects.filter((project) => {
           return (
             project.title.toLowerCase().includes(searchLower) ||
             (project.description &&
               project.description.toLowerCase().includes(searchLower)) ||
-            (project.tags &&
+            (project.category &&
+              project.category.toLowerCase().includes(searchLower)) ||
+            (Array.isArray(project.tags) &&
               project.tags.some((tag) =>
                 tag.toLowerCase().includes(searchLower),
               ))
@@ -615,10 +671,18 @@ export const projectService = {
         });
       }
 
-      return processedData;
+      // Apply custom sorting for feedback_count if needed
+      if (sortBy === "feedback_count") {
+        processedProjects.sort(
+          (a, b) => (b.feedback_count || 0) - (a.feedback_count || 0),
+        );
+      }
+
+      console.log(`Returning ${processedProjects.length} processed projects`);
+      return processedProjects;
     } catch (error) {
-      console.error("Error fetching projects:", error);
-      return []; // Return empty array instead of throwing
+      console.error("Error in fetchProjects:", error);
+      throw error;
     }
   },
 

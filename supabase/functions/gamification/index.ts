@@ -89,6 +89,32 @@ Deno.serve(async (req) => {
       let newPointsToNextLevel = pointsToNextLevel;
       let didLevelUp = false;
 
+      // Special handling for feedback quality points
+      if (activityType === "feedback_quality" && metadata) {
+        // Apply quality multipliers if available in metadata
+        if (
+          metadata.specificityScore !== undefined &&
+          metadata.actionabilityScore !== undefined &&
+          metadata.noveltyScore !== undefined
+        ) {
+          // Calculate combined quality score (0-1 range)
+          const qualityScore =
+            (metadata.specificityScore +
+              metadata.actionabilityScore +
+              metadata.novelityScore) /
+            3;
+
+          // Add quality score to metadata for activity record
+          metadata.qualityScore = qualityScore;
+
+          // Log quality metrics
+          console.log(
+            `Feedback quality metrics - Specificity: ${metadata.specificityScore}, Actionability: ${metadata.actionabilityScore}, Novelty: ${metadata.noveltyScore}`,
+          );
+          console.log(`Combined quality score: ${qualityScore}`);
+        }
+      }
+
       // Check if user leveled up
       if (newPoints >= pointsToNextLevel) {
         newLevel = currentLevel + 1;

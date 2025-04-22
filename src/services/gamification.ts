@@ -3,6 +3,7 @@ import { supabase } from "../../supabase/supabase";
 export type ActivityType =
   | "feedback_given"
   | "feedback_received"
+  | "feedback_quality"
   | "project_created"
   | "project_updated"
   | "project_promoted"

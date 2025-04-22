@@ -14,6 +14,7 @@ import {
   MessageSquare,
   BarChart2,
   UserCircle,
+  Compass,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
