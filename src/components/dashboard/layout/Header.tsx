@@ -111,16 +111,18 @@ const Header = ({
         </div>
       </div>
 
-      {/* Search Bar - Hidden on mobile unless expanded */}
-      <div
-        className={`relative ${isMobileView && !isSearchExpanded ? "hidden" : "block"} ${isMobileView ? "w-full absolute top-16 left-0 px-4 py-2 bg-white border-b border-gray-200 z-30" : "w-64 mx-4"}`}
-      >
-        <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
-        <Input
-          placeholder="Search..."
-          className="pl-8 h-9 text-sm border-gray-200 focus:border-gray-300 w-full"
-          value={searchQuery}
-          onChange={handleSearchChange}
+      {/* Quick Actions */}
+      <div className="flex-1 flex justify-center">
+        <QuickActions
+          recentProjects={[
+            { id: "1", title: "Website Redesign" },
+            { id: "2", title: "Mobile App UX" },
+            { id: "3", title: "Dashboard Analytics" },
+          ]}
+          recentFeedback={[
+            { id: "1", title: "Homepage Feedback" },
+            { id: "2", title: "Checkout Flow Issues" },
+          ]}
         />
       </div>
 
@@ -141,67 +143,7 @@ const Header = ({
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="relative text-gray-700"
-                  >
-                    <Bell className="h-5 w-5" />
-                    {unreadNotifications > 0 && (
-                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
-                        {unreadNotifications}
-                      </span>
-                    )}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-80">
-                  <DropdownMenuLabel className="flex justify-between items-center">
-                    <span>Notifications</span>
-                    {unreadNotifications > 0 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-xs h-6 px-2"
-                      >
-                        Mark all as read
-                      </Button>
-                    )}
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {notifications.length > 0 ? (
-                    <>
-                      {notifications.map((notification) => (
-                        <DropdownMenuItem
-                          key={notification.id}
-                          className={`py-3 px-4 cursor-pointer ${notification.read ? "opacity-70" : "font-medium"}`}
-                        >
-                          <div className="flex flex-col gap-1">
-                            <span>{notification.title}</span>
-                            <span className="text-xs text-gray-500">
-                              2 hours ago
-                            </span>
-                          </div>
-                        </DropdownMenuItem>
-                      ))}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem className="py-2 justify-center">
-                        <Link
-                          to="/dashboard/notifications"
-                          className="text-sm text-blue-600 hover:text-blue-800"
-                        >
-                          View all notifications
-                        </Link>
-                      </DropdownMenuItem>
-                    </>
-                  ) : (
-                    <div className="py-4 px-4 text-center text-gray-500">
-                      No notifications yet
-                    </div>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <NotificationsPopover />
             </TooltipTrigger>
             <TooltipContent>
               <p>Notifications</p>
