@@ -1,190 +1,247 @@
-import React from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import {
-  MessageSquare,
-  GitCommit,
-  Users,
-  FileEdit,
-  Star,
-  Award,
-  ThumbsUp,
-} from "lucide-react";
-
-interface ActivityItem {
-  id: string;
-  type:
-    | "comment"
-    | "commit"
-    | "mention"
-    | "update"
-    | "feedback"
-    | "achievement"
-    | "points";
-  user: {
-    name: string;
-    avatar: string;
-  };
-  content: string;
-  timestamp: string;
-  project?: string;
-  points?: number;
-  quality?: number;
-  category?: string;
-}
+import { Spinner } from "@/components/ui/spinner";
+import ActivityItem from "./ActivityItem";
+import ActivityFilter, { TimeRange } from "./ActivityFilter";
+import ActivitySkeleton from "./ActivitySkeleton";
+import { Activity, ActivityType } from "@/services/activity";
+import { groupActivitiesByDate, ActivityGroup } from "@/lib/activityUtils";
+import { supabase } from "../../../supabase/supabase";
+import { useAuth } from "../../../supabase/auth";
 
 interface ActivityFeedProps {
-  activities?: ActivityItem[];
+  activities?: Activity[];
+  isLoading?: boolean;
+  onLoadMore?: () => void;
+  hasMore?: boolean;
 }
 
-const defaultActivities: ActivityItem[] = [
-  {
-    id: "1",
-    type: "feedback",
-    user: {
-      name: "Sarah Chen",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah",
-    },
-    content: "Provided high-quality feedback on the homepage design",
-    timestamp: "5m ago",
-    project: "Website Redesign",
-    points: 25,
-    quality: 0.85,
-    category: "UI/UX",
-  },
-  {
-    id: "2",
-    type: "achievement",
-    user: {
-      name: "Alex Kim",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Alex",
-    },
-    content: "Earned the Quality Reviewer achievement",
-    timestamp: "15m ago",
-    points: 150,
-  },
-  {
-    id: "3",
-    type: "feedback",
-    user: {
-      name: "Maria Garcia",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Maria",
-    },
-    content: "Provided feedback on the checkout process",
-    timestamp: "1h ago",
-    project: "E-commerce App",
-    points: 15,
-    category: "Functionality",
-  },
-  {
-    id: "4",
-    type: "points",
-    user: {
-      name: "James Wilson",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=James",
-    },
-    content: "Received points for daily login streak",
-    timestamp: "2h ago",
-    points: 10,
-  },
-  {
-    id: "5",
-    type: "comment",
-    user: {
-      name: "Emma Johnson",
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Emma",
-    },
-    content: "Added comments on the UI design proposal",
-    timestamp: "3h ago",
-    project: "Mobile App",
-  },
-];
+const ActivityFeed: React.FC<ActivityFeedProps> = ({
+  activities = [],
+  isLoading = false,
+  onLoadMore,
+  hasMore = false,
+}) => {
+  const { user } = useAuth();
+  const [selectedType, setSelectedType] = useState<ActivityType | "all">("all");
+  const [selectedTimeRange, setSelectedTimeRange] = useState<TimeRange>("all");
+  const [filteredActivities, setFilteredActivities] =
+    useState<Activity[]>(activities);
+  const [groupedActivities, setGroupedActivities] = useState<ActivityGroup[]>(
+    [],
+  );
+  const [newActivities, setNewActivities] = useState<Activity[]>([]);
+  const parentRef = useRef<HTMLDivElement>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
-const getActivityIcon = (type: ActivityItem["type"]) => {
-  switch (type) {
-    case "comment":
-      return <MessageSquare className="h-4 w-4" />;
-    case "commit":
-      return <GitCommit className="h-4 w-4" />;
-    case "mention":
-      return <Users className="h-4 w-4" />;
-    case "update":
-      return <FileEdit className="h-4 w-4" />;
-    case "feedback":
-      return <ThumbsUp className="h-4 w-4 text-teal-500" />;
-    case "achievement":
-      return <Award className="h-4 w-4 text-amber-500" />;
-    case "points":
-      return <Star className="h-4 w-4 text-amber-500" />;
-    default:
-      return <MessageSquare className="h-4 w-4" />;
-  }
-};
+  // Filter activities based on selected type and time range
+  useEffect(() => {
+    if (!activities.length) return;
 
-const ActivityFeed = ({
-  activities = defaultActivities,
-}: ActivityFeedProps) => {
+    let filtered = [...activities];
+
+    // Filter by activity type
+    if (selectedType !== "all") {
+      filtered = filtered.filter((activity) => activity.type === selectedType);
+    }
+
+    // Filter by time range
+    if (selectedTimeRange !== "all") {
+      const now = new Date();
+      let cutoffDate = new Date();
+
+      switch (selectedTimeRange) {
+        case "today":
+          cutoffDate.setHours(0, 0, 0, 0);
+          break;
+        case "week":
+          cutoffDate.setDate(now.getDate() - 7);
+          break;
+        case "month":
+          cutoffDate.setMonth(now.getMonth() - 1);
+          break;
+      }
+
+      filtered = filtered.filter((activity) => {
+        const activityDate = new Date(activity.created_at);
+        return activityDate >= cutoffDate;
+      });
+    }
+
+    setFilteredActivities(filtered);
+  }, [activities, selectedType, selectedTimeRange]);
+
+  // Group activities by date
+  useEffect(() => {
+    const grouped = groupActivitiesByDate(filteredActivities);
+    setGroupedActivities(grouped);
+  }, [filteredActivities]);
+
+  // Set up real-time subscription for new activities
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel("activity-feed")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "user_activity",
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          const newActivity = payload.new as Activity;
+          setNewActivities((prev) => [newActivity, ...prev]);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
+  // Handle loading more activities when scrolling to the bottom
+  useEffect(() => {
+    if (!loadMoreRef.current || !parentRef.current || !onLoadMore || !hasMore)
+      return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !isLoading && hasMore) {
+          onLoadMore();
+        }
+      },
+      { root: parentRef.current, threshold: 0.1 },
+    );
+
+    observer.observe(loadMoreRef.current);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [onLoadMore, isLoading, hasMore]);
+
+  // Handle new activities notification
+  const handleShowNewActivities = useCallback(() => {
+    setFilteredActivities((prev) => [...newActivities, ...prev]);
+    setNewActivities([]);
+  }, [newActivities]);
+
+  // Create a flat array of all activities with their group information for virtualization
+  const flatItems = groupedActivities.flatMap((group, groupIndex) => [
+    { type: "header", id: `header-${groupIndex}`, title: group.title },
+    ...group.activities.map((activity) => ({
+      type: "activity",
+      id: activity.id,
+      activity,
+    })),
+  ]);
+
+  // Set up virtualization
+  const rowVirtualizer = useVirtualizer({
+    count: flatItems.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: (index) => {
+      const item = flatItems[index];
+      return item.type === "header" ? 40 : 120; // Estimate sizes for headers and activities
+    },
+    overscan: 5,
+  });
+
   return (
-    <div className="h-full">
-      <h2 className="text-lg font-semibold mb-4">Activity Feed</h2>
-      <ScrollArea className="h-[calc(100vh-180px)]">
-        <div className="space-y-4 pr-4">
-          {activities.map((activity, index) => (
-            <div key={activity.id} className="group">
-              <div className="flex items-start gap-3">
-                <Avatar className="h-8 w-8 mt-0.5">
-                  <AvatarImage
-                    src={activity.user.avatar}
-                    alt={activity.user.name}
-                  />
-                  <AvatarFallback>{activity.user.name[0]}</AvatarFallback>
-                </Avatar>
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-sm">
-                      {activity.user.name}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {activity.timestamp}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600">{activity.content}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    {activity.project && (
-                      <Badge variant="outline" className="text-xs bg-gray-50">
-                        {activity.project}
-                      </Badge>
-                    )}
-                    {activity.category && (
-                      <Badge
-                        variant="outline"
-                        className="text-xs bg-blue-50 text-blue-700 border-blue-200"
-                      >
-                        {activity.category}
-                      </Badge>
-                    )}
-                    {activity.quality && activity.quality > 0.7 && (
-                      <Badge className="text-xs bg-green-100 text-green-700">
-                        Quality: {Math.round(activity.quality * 100)}%
-                      </Badge>
-                    )}
-                    {activity.points && activity.points > 0 && (
-                      <Badge className="ml-auto text-xs bg-teal-100 text-teal-700">
-                        +{activity.points} pts
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </div>
-              {index < activities.length - 1 && <Separator className="my-4" />}
-            </div>
-          ))}
+    <div className="h-full flex flex-col">
+      <ActivityFilter
+        selectedType={selectedType}
+        onTypeChange={setSelectedType}
+        selectedTimeRange={selectedTimeRange}
+        onTimeRangeChange={setSelectedTimeRange}
+      />
+
+      {newActivities.length > 0 && (
+        <Button
+          onClick={handleShowNewActivities}
+          className="mb-4 bg-teal-100 text-teal-700 hover:bg-teal-200 w-full"
+        >
+          Show {newActivities.length} new{" "}
+          {newActivities.length === 1 ? "activity" : "activities"}
+        </Button>
+      )}
+
+      {isLoading && !activities.length ? (
+        <ActivitySkeleton count={3} />
+      ) : filteredActivities.length === 0 ? (
+        <div className="text-center py-8 text-gray-500">
+          No activities found for the selected filters.
         </div>
-      </ScrollArea>
+      ) : (
+        <div ref={parentRef} className="flex-1 overflow-auto">
+          <div
+            style={{
+              height: `${rowVirtualizer.getTotalSize()}px`,
+              width: "100%",
+              position: "relative",
+            }}
+          >
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const item = flatItems[virtualRow.index];
+
+              return (
+                <div
+                  key={item.id}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    height: `${virtualRow.size}px`,
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+                  {item.type === "header" ? (
+                    <div className="sticky top-0 bg-white dark:bg-slate-900 py-2 font-medium text-sm text-gray-500 z-10">
+                      {item.title}
+                    </div>
+                  ) : (
+                    <div className="py-2">
+                      <ActivityItem
+                        activity={item.activity}
+                        isNew={newActivities.some(
+                          (a) => a.id === item.activity.id,
+                        )}
+                      />
+                      <Separator className="my-2" />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Load more indicator */}
+          {hasMore && (
+            <div ref={loadMoreRef} className="py-4 flex justify-center">
+              {isLoading ? (
+                <Spinner className="h-6 w-6 text-teal-500" />
+              ) : (
+                <Button
+                  variant="ghost"
+                  onClick={onLoadMore}
+                  className="text-teal-600 hover:text-teal-700"
+                >
+                  Load more
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
 
-export default ActivityFeed;
+export default React.memo(ActivityFeed);

@@ -1,6 +1,18 @@
 import { supabase } from "../../supabase/supabase";
 
 /**
+ * Enum for activity types to ensure consistency across the application
+ */
+export enum ActivityType {
+  PROJECT = "project",
+  FEEDBACK = "feedback",
+  REWARD = "reward",
+  ACHIEVEMENT = "achievement",
+  LOGIN = "login",
+  SYSTEM = "system",
+}
+
+/**
  * Generic interface for activity metadata
  * This allows for type-safe metadata for different activity types
  */
@@ -419,7 +431,7 @@ export const activityService = {
         .select("*")
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
-        .limit(limit);
+        .range(offset, offset + limit - 1);
 
       if (error) {
         console.error(

@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  BarChart2,
   ChevronDown,
   Filter,
   Loader2,
@@ -59,6 +60,8 @@ const categoryPointsReward = {
 };
 
 const ProjectCard = ({ project, onGiveFeedback }) => {
+  const navigate = useNavigate();
+
   // Determine thumbnail image
   const thumbnailUrl =
     project.thumbnail_url ||
@@ -152,12 +155,24 @@ const ProjectCard = ({ project, onGiveFeedback }) => {
             <span>{pointsReward}</span>
           </div>
         </div>
-        <Button
-          onClick={() => onGiveFeedback(project.id)}
-          className="bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white"
-        >
-          <ThumbsUp className="h-4 w-4 mr-2" /> Give Feedback
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={() => onGiveFeedback(project.id)}
+            className="bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white"
+          >
+            <ThumbsUp className="h-4 w-4 mr-2" /> Give Feedback
+          </Button>
+          <Button
+            onClick={() =>
+              navigate(`/dashboard/feedback-analytics/${project.id}`)
+            }
+            variant="outline"
+            size="icon"
+            title="View Analytics"
+          >
+            <BarChart2 className="h-4 w-4" />
+          </Button>
+        </div>
       </CardFooter>
     </Card>
   );

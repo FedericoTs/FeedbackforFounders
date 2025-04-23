@@ -14,6 +14,7 @@ import ProjectDetails from "./components/pages/ProjectDetails";
 import Profile from "./components/pages/Profile";
 import Success from "./components/pages/success";
 import Home from "./components/pages/home";
+import FeedbackAnalytics from "./components/pages/FeedbackAnalytics";
 import { AuthProvider, useAuth } from "../supabase/auth";
 import { Toaster } from "./components/ui/toaster";
 import { ThemeProvider } from "./components/ui/theme-provider";
@@ -66,6 +67,11 @@ function AppRoutes() {
           <Route path="analytics" element={<Analytics />} />
           <Route path="feedback" element={<FeedbackInterface />} />
           <Route path="feedback/:id" element={<FeedbackInterface />} />
+          <Route path="feedback-analytics" element={<FeedbackAnalytics />} />
+          <Route
+            path="feedback-analytics/:id"
+            element={<FeedbackAnalytics />}
+          />
           <Route path="project-discovery" element={<ProjectDiscovery />} />
         </Route>
 

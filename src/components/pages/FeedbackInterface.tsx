@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/resizable";
 import {
   ArrowLeft,
+  BarChart2,
   Check,
   ChevronRight,
   Code,
@@ -592,13 +593,22 @@ const FeedbackInterface = () => {
                   </span>
                 </div>
               </div>
-              <Button
-                onClick={() => navigate("/dashboard/project-discovery")}
-                className="w-full bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white"
-              >
-                <Compass className="h-4 w-4 mr-2" />
-                Browse Projects
-              </Button>
+              <div className="space-y-2">
+                <Button
+                  onClick={() => navigate(`/dashboard/project-discovery`)}
+                  className="w-full bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white"
+                >
+                  <Compass className="h-4 w-4 mr-2" />
+                  Browse Projects
+                </Button>
+                <Button
+                  onClick={() => navigate(`/dashboard/feedback-analytics`)}
+                  className="w-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white"
+                >
+                  <BarChart2 className="h-4 w-4 mr-2" />
+                  View Feedback Analytics
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
