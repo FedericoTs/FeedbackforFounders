@@ -19,6 +19,7 @@ export interface ProjectSection {
     height: number;
   };
   priority: number;
+  elementSelector?: string; // Added this field to fix the error
 }
 
 interface ProjectSectionMapProps {

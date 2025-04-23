@@ -12,6 +12,7 @@ interface FeedbackFormProps {
     content: string;
     rating: number;
     category: string;
+    elementSelector?: string | null;
   }) => Promise<void>;
   onCancel: () => void;
   isSubmitting: boolean;
@@ -85,6 +86,7 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({
       content: feedbackText,
       rating,
       category: selectedCategory,
+      elementSelector: section?.elementSelector || null,
     });
 
     // Reset form
