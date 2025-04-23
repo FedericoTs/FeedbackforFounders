@@ -8,8 +8,8 @@ import ActivityFilter, { TimeRange } from "./ActivityFilter";
 import ActivitySkeleton from "./ActivitySkeleton";
 import { Activity, ActivityType } from "@/services/activity";
 import { groupActivitiesByDate, ActivityGroup } from "@/lib/activityUtils";
-import { supabase } from "../../../supabase/supabase";
-import { useAuth } from "../../../supabase/auth";
+import { supabase } from "@/supabase/supabase";
+import { useAuth } from "@/supabase/auth";
 
 interface ActivityFeedProps {
   activities?: Activity[];

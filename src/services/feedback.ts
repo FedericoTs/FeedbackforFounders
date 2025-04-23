@@ -1,5 +1,6 @@
 import { supabase } from "../../supabase/supabase";
 import { rewardsService } from "./rewards";
+import { FeedbackCategory } from "@/components/feedback/FeedbackCategorySelector";
 
 export interface FeedbackQualityMetrics {
   specificityScore: number;

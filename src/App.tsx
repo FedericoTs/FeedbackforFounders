@@ -15,7 +15,8 @@ import Profile from "./components/pages/Profile";
 import Success from "./components/pages/success";
 import Home from "./components/pages/home";
 import FeedbackAnalytics from "./components/pages/FeedbackAnalytics";
-import { AuthProvider, useAuth } from "../supabase/auth";
+import Notifications from "./components/pages/Notifications";
+import { AuthProvider, useAuth } from "./supabase/auth";
 import { Toaster } from "./components/ui/toaster";
 import { ThemeProvider } from "./components/ui/theme-provider";
 import DashboardLayout from "./components/dashboard/layout/DashboardLayout";
@@ -73,6 +74,7 @@ function AppRoutes() {
             element={<FeedbackAnalytics />}
           />
           <Route path="project-discovery" element={<ProjectDiscovery />} />
+          <Route path="notifications" element={<Notifications />} />
         </Route>
 
         {/* Add this before any catchall route to allow Tempo to capture routes */}
@@ -87,11 +89,7 @@ function App() {
     <ThemeProvider defaultTheme="light">
       <AuthProvider>
         <AwardToastProvider>
-          <Suspense fallback={<p>Loading...</p>}>
-            <ErrorBoundary>
-              <AppRoutes />
-            </ErrorBoundary>
-          </Suspense>
+          <Suspense fallback={<p>Loading...
           <Toaster />
           <AwardToastListener />
         </AwardToastProvider>

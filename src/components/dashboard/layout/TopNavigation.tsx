@@ -17,7 +17,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useAuth } from "../../../../supabase/auth";
+import { useAuth } from "../../../supabase/auth";
 import { Link } from "react-router-dom";
 
 interface TopNavigationProps {
@@ -58,7 +58,11 @@ const TopNavigation = ({
             <TooltipTrigger asChild>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="relative text-gray-700">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="relative text-gray-700"
+                  >
                     <Bell className="h-5 w-5" />
                     {notifications.length > 0 && (
                       <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">

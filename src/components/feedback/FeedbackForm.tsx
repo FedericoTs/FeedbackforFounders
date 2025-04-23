@@ -1,10 +1,15 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Star, Send, X, AlertCircle } from "lucide-react";
 import { ProjectSection } from "./ProjectSectionMap";
+import FeedbackCategorySelector, {
+  FeedbackCategory,
+} from "./FeedbackCategorySelector";
+import { feedbackCategoriesService } from "@/services/feedbackCategories";
+import { feedbackQualityService } from "@/services/feedbackQuality";
 
 interface FeedbackFormProps {
   section: ProjectSection | null;
@@ -12,6 +17,7 @@ interface FeedbackFormProps {
     content: string;
     rating: number;
     category: string;
+    customCategories?: FeedbackCategory[];
     elementSelector?: string | null;
   }) => Promise<void>;
   onCancel: () => void;
@@ -21,6 +27,7 @@ interface FeedbackFormProps {
     user: { name: string };
   }>;
   currentUser?: { name?: string } | null;
+  projectId?: string;
 }
 
 const FEEDBACK_CATEGORIES = [
@@ -50,6 +57,7 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({
   isSubmitting,
   existingFeedback = [],
   currentUser = null,
+  projectId,
 }) => {
   const [disabledCategories, setDisabledCategories] = useState<string[]>([]);
   const [feedbackText, setFeedbackText] = useState("");
@@ -57,9 +65,52 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({
   const [selectedCategory, setSelectedCategory] = useState(
     FEEDBACK_CATEGORIES[0].id,
   );
+  const [customCategories, setCustomCategories] = useState<FeedbackCategory[]>(
+    [],
+  );
+  const [availableCategories, setAvailableCategories] = useState<
+    FeedbackCategory[]
+  >([]);
+  const [suggestedCategories, setSuggestedCategories] = useState<
+    FeedbackCategory[]
+  >([]);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  // Fetch available categories when component mounts
+  useEffect(() => {
+    const fetchCategories = async () => {
+      const categories =
+        await feedbackCategoriesService.getCategories(projectId);
+      setAvailableCategories(categories);
+    };
+    fetchCategories();
+  }, [projectId]);
+
+  // Analyze feedback text to suggest categories
+  useEffect(() => {
+    const debounceTimeout = setTimeout(async () => {
+      if (feedbackText.trim().length > 20) {
+        setIsAnalyzing(true);
+        try {
+          const suggested =
+            await feedbackCategoriesService.getSuggestedCategories(
+              feedbackText,
+              projectId,
+            );
+          setSuggestedCategories(suggested);
+        } catch (error) {
+          console.error("Error getting suggested categories:", error);
+        } finally {
+          setIsAnalyzing(false);
+        }
+      }
+    }, 1000); // Debounce for 1 second
+
+    return () => clearTimeout(debounceTimeout);
+  }, [feedbackText, projectId]);
 
   // Check which categories the current user has already provided feedback for
-  React.useEffect(() => {
+  useEffect(() => {
     if (section && existingFeedback.length > 0 && currentUser) {
       const userName = currentUser.name || "Anonymous";
       const userFeedbackCategories = existingFeedback
@@ -86,6 +137,7 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({
       content: feedbackText,
       rating,
       category: selectedCategory,
+      customCategories: customCategories,
       elementSelector: section?.elementSelector || null,
     });
 
@@ -93,6 +145,7 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({
     setFeedbackText("");
     setRating(4);
     setSelectedCategory(FEEDBACK_CATEGORIES[0].id);
+    setCustomCategories([]);
   };
 
   return (
@@ -125,6 +178,12 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({
                 value={feedbackText}
                 onChange={(e) => setFeedbackText(e.target.value)}
               />
+              {isAnalyzing && (
+                <div className="text-xs text-slate-500 mt-1 flex items-center">
+                  <div className="h-3 w-3 border-2 border-slate-500 border-t-transparent rounded-full animate-spin mr-1"></div>
+                  Analyzing feedback...
+                </div>
+              )}
             </div>
 
             <div>
@@ -171,9 +230,10 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({
                 suggestedCategories={suggestedCategories}
                 onCategoriesChange={setCustomCategories}
                 onCreateCategory={(category) =>
-                  feedbackCategoriesService.createCategory(category)
+                  feedbackCategoriesService.createCategory(category, projectId)
                 }
                 maxCategories={5}
+                projectId={projectId}
               />
               <p className="text-xs text-slate-500 mt-1">
                 Add more specific categories to help organize your feedback

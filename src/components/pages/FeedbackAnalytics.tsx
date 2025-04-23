@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { useParams } from "react-router-dom";
-import { useAuth } from "../../../supabase/auth";
+import { useAuth } from "@/supabase/auth";
 import FeedbackAnalyticsComponent from "../feedback/FeedbackAnalytics";
+import FeedbackAnalyticsDashboard from "../feedback/FeedbackAnalyticsDashboard";
 import {
   Card,
   CardContent,
@@ -10,14 +11,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart2, User } from "lucide-react";
+import { BarChart2, User, LineChart, PieChart } from "lucide-react";
 
 const FeedbackAnalytics: React.FC = () => {
   const { id: projectId } = useParams<{ id?: string }>();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<"project" | "personal">(
-    projectId ? "project" : "personal",
-  );
+  const [activeTab, setActiveTab] = useState<
+    "project" | "personal" | "dashboard"
+  >(projectId ? "project" : "dashboard");
 
   return (
     <div className="container mx-auto px-4 py-6">
@@ -25,10 +26,16 @@ const FeedbackAnalytics: React.FC = () => {
 
       <Tabs
         value={activeTab}
-        onValueChange={(value) => setActiveTab(value as "project" | "personal")}
+        onValueChange={(value) =>
+          setActiveTab(value as "project" | "personal" | "dashboard")
+        }
         className="mb-6"
       >
         <TabsList>
+          <TabsTrigger value="dashboard" className="flex items-center gap-2">
+            <LineChart className="h-4 w-4" />
+            Dashboard
+          </TabsTrigger>
           {projectId && (
             <TabsTrigger value="project" className="flex items-center gap-2">
               <BarChart2 className="h-4 w-4" />
@@ -40,6 +47,10 @@ const FeedbackAnalytics: React.FC = () => {
             Personal Analytics
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="dashboard" className="mt-0">
+          <FeedbackAnalyticsDashboard projectId={projectId} />
+        </TabsContent>
 
         <TabsContent value="project" className="mt-0">
           {projectId ? (
