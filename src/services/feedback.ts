@@ -34,10 +34,13 @@ export const feedbackService = {
     message?: string;
   }> {
     try {
+      console.log("Starting feedback submission process", feedback);
+
       // First, analyze feedback quality using AI
       const qualityMetrics = await this.analyzeFeedbackQuality(
         feedback.content,
       );
+      console.log("Quality metrics analyzed:", qualityMetrics);
 
       // Insert feedback into database
       const { data: feedbackData, error: feedbackError } = await supabase
@@ -58,73 +61,90 @@ export const feedbackService = {
           screenshot_url: feedback.screenshotUrl,
           screenshot_annotations: feedback.screenshotAnnotations,
           quick_reactions: feedback.quickReactions,
+          rating: 5, // Default rating if not provided
         })
         .select("id")
         .single();
 
       if (feedbackError) {
         console.error("Error inserting feedback:", feedbackError);
-        throw new Error("Failed to submit feedback");
+        throw new Error(`Failed to submit feedback: ${feedbackError.message}`);
       }
 
+      console.log("Feedback inserted successfully:", feedbackData);
       const feedbackId = feedbackData.id;
 
-      // Award base points for feedback submission
-      await rewardsService.processReward({
-        userId: feedback.userId,
-        activityType: "feedback_given",
-        description: `Provided feedback on project`,
-        projectId: feedback.projectId,
-        metadata: {
-          feedbackId,
-          sectionId: feedback.sectionId,
-          sectionName: feedback.sectionName,
-        },
-      });
-
-      // Calculate quality points
-      const qualityPoints = this.calculateQualityPoints(qualityMetrics);
-
-      // Award quality points if above threshold
-      if (qualityPoints > 0) {
+      try {
+        // Award base points for feedback submission
         await rewardsService.processReward({
           userId: feedback.userId,
-          activityType: "feedback_quality",
-          description: `Provided high-quality feedback`,
+          activityType: "feedback_given",
+          description: `Provided feedback on project`,
           projectId: feedback.projectId,
           metadata: {
             feedbackId,
-            qualityMetrics,
-            qualityPoints,
+            sectionId: feedback.sectionId,
+            sectionName: feedback.sectionName,
           },
         });
+        console.log("Base reward processed");
+
+        // Calculate quality points
+        const qualityPoints = this.calculateQualityPoints(qualityMetrics);
+        console.log("Quality points calculated:", qualityPoints);
+
+        // Award quality points if above threshold
+        if (qualityPoints > 0) {
+          await rewardsService.processReward({
+            userId: feedback.userId,
+            activityType: "feedback_quality",
+            description: `Provided high-quality feedback`,
+            projectId: feedback.projectId,
+            metadata: {
+              feedbackId,
+              qualityMetrics,
+              qualityPoints,
+            },
+          });
+          console.log("Quality reward processed");
+        }
+
+        // Update feedback record with points awarded
+        await supabase
+          .from("feedback")
+          .update({ points_awarded: 10 + qualityPoints })
+          .eq("id", feedbackId);
+        console.log("Feedback record updated with points");
+
+        // Update project section feedback count
+        await this.updateSectionFeedbackCount(
+          feedback.projectId,
+          feedback.sectionId,
+        );
+        console.log("Section feedback count updated");
+
+        // Check for achievements
+        await this.checkFeedbackAchievements(feedback.userId);
+        console.log("Achievements checked");
+      } catch (rewardError) {
+        console.error("Error processing rewards (non-critical):", rewardError);
+        // Continue even if rewards processing fails
       }
-
-      // Update feedback record with points awarded
-      await supabase
-        .from("feedback")
-        .update({ points_awarded: 10 + qualityPoints })
-        .eq("id", feedbackId);
-
-      // Update project section feedback count
-      await this.updateSectionFeedbackCount(
-        feedback.projectId,
-        feedback.sectionId,
-      );
-
-      // Check for achievements
-      await this.checkFeedbackAchievements(feedback.userId);
 
       return {
         success: true,
         feedbackId,
-        points: 10 + qualityPoints, // Base points + quality points
+        points: 10 + this.calculateQualityPoints(qualityMetrics), // Base points + quality points
         qualityMetrics,
         message: "Feedback submitted successfully",
       };
     } catch (error) {
       console.error("Error in submitFeedback:", error);
-      return { success: false, message: "Failed to submit feedback" };
+      return {
+        success: false,
+        message:
+          error instanceof Error ? error.message : "Failed to submit feedback",
+      };
     }
   },
 

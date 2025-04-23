@@ -409,10 +409,15 @@ const FeedbackInterface = () => {
     } else {
       setActiveSection(sectionId);
       setActiveTab("preview");
+
+      // First make sure we're on the preview tab
+      setActiveTab("preview");
+
       // Scroll to the section after a short delay to ensure the iframe is ready
       setTimeout(() => {
+        console.log("Attempting to scroll to section ID:", sectionId);
         scrollIframeToSection(sectionId);
-      }, 300);
+      }, 500); // Increased delay for better reliability
     }
   };
 
@@ -466,26 +471,26 @@ const FeedbackInterface = () => {
         pageUrl,
       });
 
-      // Mock successful feedback submission for now to bypass the edge function error
-      // In a production environment, you would fix the edge function CORS issues
-      const mockQualityMetrics = {
-        specificityScore: 0.75,
-        actionabilityScore: 0.8,
-        noveltyScore: 0.7,
-        sentiment: 0.5,
-      };
+      // Submit feedback to the database using the feedbackService
+      const result = await feedbackService.submitFeedback({
+        projectId,
+        userId: user.id,
+        sectionId: activeSection,
+        sectionName: section.name,
+        sectionType: section.type,
+        content: feedbackData.content,
+        category: feedbackData.category,
+        screenshotUrl: feedbackData.screenshotUrl,
+        quickReactions: {},
+      });
 
-      const mockResult = {
-        success: true,
-        feedbackId: `temp-${Date.now()}`,
-        points: 20, // Base points + quality points
-        qualityMetrics: mockQualityMetrics,
-        message: "Feedback submitted successfully",
-      };
+      if (!result.success) {
+        throw new Error(result.message || "Failed to submit feedback");
+      }
 
       // Create a new feedback entry for the UI
       const newFeedback = {
-        id: mockResult.feedbackId,
+        id: result.feedbackId,
         user: {
           name: user.user_metadata?.name || "Anonymous",
           avatar: user.user_metadata?.avatar_url || "user",
@@ -494,12 +499,12 @@ const FeedbackInterface = () => {
         content: feedbackData.content,
         createdAt: new Date().toISOString(),
         rating: feedbackData.rating,
-        pointsEarned: mockResult.points,
+        pointsEarned: result.points || 10,
         sectionId: activeSection,
         sectionName: section.name,
         category: feedbackData.category,
         screenshotUrl: feedbackData.screenshotUrl,
-        qualityMetrics: mockResult.qualityMetrics,
+        qualityMetrics: result.qualityMetrics,
         pageUrl: pageUrl, // Store the current page URL
       };
 
@@ -792,7 +797,7 @@ const FeedbackInterface = () => {
                                   <RefreshCw className="h-3 w-3 mr-1" /> Refresh
                                 </Button>
                               </div>
-                              <div className="flex-1 relative">
+                              <div className="flex-1  h-full">
                                 <iframe
                                   ref={iframeRef}
                                   id="project-preview-iframe"
@@ -803,10 +808,7 @@ const FeedbackInterface = () => {
                                   loading="lazy"
                                   onLoad={() => {
                                     console.log("Iframe loaded successfully");
-                                    // Try to scroll to the active section if one is selected
-                                    if (activeSection) {
-                                      scrollIframeToSection(activeSection);
-                                    }
+                                    // Don't auto-scroll to avoid errors
                                   }}
                                   onError={() =>
                                     console.error("Error loading iframe")
@@ -838,25 +840,7 @@ const FeedbackInterface = () => {
                             </div>
                           )}
 
-                          {activeSection && (
-                            <div
-                              className="absolute border-2 border-teal-500 bg-teal-500/10 pointer-events-none z-10 animate-pulse"
-                              style={{
-                                left:
-                                  sections.find((s) => s.id === activeSection)
-                                    ?.visualBounds?.x || 0,
-                                top:
-                                  sections.find((s) => s.id === activeSection)
-                                    ?.visualBounds?.y || 0,
-                                width:
-                                  sections.find((s) => s.id === activeSection)
-                                    ?.visualBounds?.width || 0,
-                                height:
-                                  sections.find((s) => s.id === activeSection)
-                                    ?.visualBounds?.height || 0,
-                              }}
-                            />
-                          )}
+                          {/* Section highlight removed to prevent errors */}
                         </div>
                       </div>
                     </Card>
@@ -873,6 +857,10 @@ const FeedbackInterface = () => {
                           onSubmit={handleSubmitFeedback}
                           onCancel={handleCancelFeedback}
                           isSubmitting={isSubmitting}
+                          existingFeedback={feedback.filter(
+                            (f) => f.sectionId === activeSection,
+                          )}
+                          currentUser={user?.user_metadata}
                         />
                       </Card>
                     </div>

@@ -3,7 +3,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Star, Send, X } from "lucide-react";
+import { Star, Send, X, AlertCircle } from "lucide-react";
 import { ProjectSection } from "./ProjectSectionMap";
 
 interface FeedbackFormProps {
@@ -15,6 +15,11 @@ interface FeedbackFormProps {
   }) => Promise<void>;
   onCancel: () => void;
   isSubmitting: boolean;
+  existingFeedback?: Array<{
+    category: string;
+    user: { name: string };
+  }>;
+  currentUser?: { name?: string } | null;
 }
 
 const FEEDBACK_CATEGORIES = [
@@ -42,12 +47,38 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({
   onSubmit,
   onCancel,
   isSubmitting,
+  existingFeedback = [],
+  currentUser = null,
 }) => {
+  const [disabledCategories, setDisabledCategories] = useState<string[]>([]);
   const [feedbackText, setFeedbackText] = useState("");
   const [rating, setRating] = useState(4);
   const [selectedCategory, setSelectedCategory] = useState(
     FEEDBACK_CATEGORIES[0].id,
   );
+
+  // Check which categories the current user has already provided feedback for
+  React.useEffect(() => {
+    if (section && existingFeedback.length > 0 && currentUser) {
+      const userName = currentUser.name || "Anonymous";
+      const userFeedbackCategories = existingFeedback
+        .filter((f) => f.user.name === userName && f.category)
+        .map((f) => f.category);
+
+      setDisabledCategories(userFeedbackCategories);
+
+      // If the currently selected category is disabled, select the first available one
+      if (userFeedbackCategories.includes(selectedCategory)) {
+        const availableCategories = FEEDBACK_CATEGORIES.filter(
+          (cat) => !userFeedbackCategories.includes(cat.id),
+        ).map((cat) => cat.id);
+
+        if (availableCategories.length > 0) {
+          setSelectedCategory(availableCategories[0]);
+        }
+      }
+    }
+  }, [section, existingFeedback, currentUser, selectedCategory]);
 
   const handleSubmit = async () => {
     await onSubmit({
@@ -99,16 +130,33 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({
                 Category
               </label>
               <div className="flex flex-wrap gap-2">
-                {FEEDBACK_CATEGORIES.map((category) => (
-                  <Badge
-                    key={category.id}
-                    className={`cursor-pointer ${selectedCategory === category.id ? category.color : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"}`}
-                    onClick={() => setSelectedCategory(category.id)}
-                  >
-                    {category.label}
-                  </Badge>
-                ))}
+                {FEEDBACK_CATEGORIES.map((category) => {
+                  const isDisabled = disabledCategories.includes(category.id);
+                  return (
+                    <Badge
+                      key={category.id}
+                      className={`${isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"} ${selectedCategory === category.id ? category.color : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"}`}
+                      onClick={() =>
+                        !isDisabled && setSelectedCategory(category.id)
+                      }
+                    >
+                      {category.label}
+                      {isDisabled && (
+                        <AlertCircle
+                          className="h-3 w-3 ml-1"
+                          title="You've already provided feedback in this category"
+                        />
+                      )}
+                    </Badge>
+                  );
+                })}
               </div>
+              {disabledCategories.length > 0 && (
+                <p className="text-xs text-amber-600 mt-1">
+                  <AlertCircle className="h-3 w-3 inline mr-1" />
+                  You can only provide one feedback per section per category
+                </p>
+              )}
             </div>
 
             <div>

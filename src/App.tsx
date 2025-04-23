@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import ErrorBoundary from "./components/ErrorBoundary";
 import { Navigate, Route, Routes, useRoutes } from "react-router-dom";
 import routes from "tempo-routes";
 import LoginForm from "./components/auth/LoginForm";
@@ -81,7 +82,9 @@ function App() {
       <AuthProvider>
         <AwardToastProvider>
           <Suspense fallback={<p>Loading...</p>}>
-            <AppRoutes />
+            <ErrorBoundary>
+              <AppRoutes />
+            </ErrorBoundary>
           </Suspense>
           <Toaster />
           <AwardToastListener />
