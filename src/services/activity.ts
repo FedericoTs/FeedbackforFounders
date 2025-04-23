@@ -420,18 +420,57 @@ export const activityService = {
   /**
    * Get recent activities for a user
    */
-  async getUserActivities(userId: string, limit = 10): Promise<any[]> {
+  async getUserActivities(
+    userId: string,
+    options: {
+      limit?: number;
+      offset?: number;
+      type?: ActivityType | "all";
+      timeRange?: string;
+    } = {},
+  ): Promise<any[]> {
     try {
+      const { limit = 10, offset = 0, type, timeRange } = options;
+
       console.log(
-        `[Activity Service] Fetching activities for user ${userId} with limit ${limit}`,
+        `[Activity Service] Fetching activities for user ${userId} with limit ${limit}, offset ${offset}`,
       );
 
-      const { data, error } = await supabase
+      let query = supabase
         .from("user_activity")
         .select("*")
         .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .range(offset, offset + limit - 1);
+        .order("created_at", { ascending: false });
+
+      // Apply type filter if specified
+      if (type && type !== "all") {
+        query = query.eq("activity_type", type);
+      }
+
+      // Apply time range filter if specified
+      if (timeRange && timeRange !== "all") {
+        const now = new Date();
+        let cutoffDate = new Date();
+
+        switch (timeRange) {
+          case "today":
+            cutoffDate.setHours(0, 0, 0, 0);
+            break;
+          case "week":
+            cutoffDate.setDate(now.getDate() - 7);
+            break;
+          case "month":
+            cutoffDate.setMonth(now.getMonth() - 1);
+            break;
+        }
+
+        query = query.gte("created_at", cutoffDate.toISOString());
+      }
+
+      // Apply pagination
+      query = query.range(offset, offset + limit - 1);
+
+      const { data, error } = await query;
 
       if (error) {
         console.error(
