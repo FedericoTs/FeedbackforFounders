@@ -89,7 +89,11 @@ function App() {
     <ThemeProvider defaultTheme="light">
       <AuthProvider>
         <AwardToastProvider>
-          <Suspense fallback={<p>Loading...
+          <Suspense fallback={<p>Loading...</p>}>
+            <ErrorBoundary>
+              <AppRoutes />
+            </ErrorBoundary>
+          </Suspense>
           <Toaster />
           <AwardToastListener />
         </AwardToastProvider>
