@@ -166,6 +166,23 @@ async function analyzeFeedbackWithOpenAI(
     // Parse the JSON
     const metrics = JSON.parse(metricsJson);
 
+    // Process suggested categories if available
+    let suggestedCategories;
+    if (
+      metrics.suggestedCategories &&
+      Array.isArray(metrics.suggestedCategories)
+    ) {
+      suggestedCategories = metrics.suggestedCategories.map(
+        (cat: any, index: number) => ({
+          id: `ai-${Date.now()}-${index}`,
+          name: cat.name,
+          description: cat.description || undefined,
+          color: undefined, // Will be assigned by the frontend
+          confidence: parseFloat(cat.confidence || "0.5"),
+        }),
+      );
+    }
+
     // Ensure all required fields are present
     return {
       specificityScore: parseFloat(
@@ -180,6 +197,7 @@ async function analyzeFeedbackWithOpenAI(
       sentiment: parseFloat(metrics.sentiment || "0"),
       category: metrics.category || undefined,
       subcategory: metrics.subcategory || undefined,
+      suggestedCategories,
     };
   } catch (error) {
     console.error("Error analyzing feedback with OpenAI:", error);

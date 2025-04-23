@@ -123,6 +123,66 @@ export const feedbackService = {
             "Successfully inserted feedback using submit_feedback_v2",
           );
 
+          // Add custom categories if provided
+          if (
+            feedback.customCategories &&
+            feedback.customCategories.length > 0 &&
+            feedbackId
+          ) {
+            try {
+              // Get category IDs, filtering out temporary categories
+              const validCategoryIds = feedback.customCategories
+                .filter(
+                  (cat) =>
+                    !cat.id.startsWith("temp-") && !cat.id.startsWith("ai-"),
+                )
+                .map((cat) => cat.id);
+
+              // Create mappings for each valid category
+              if (validCategoryIds.length > 0) {
+                const mappings = validCategoryIds.map((categoryId) => ({
+                  feedback_id: feedbackId,
+                  category_id: categoryId,
+                }));
+
+                await supabase
+                  .from("feedback_category_mappings")
+                  .insert(mappings);
+              }
+
+              // Handle temporary categories - create them first
+              const tempCategories = feedback.customCategories.filter(
+                (cat) => cat.id.startsWith("temp-") || cat.id.startsWith("ai-"),
+              );
+
+              for (const tempCat of tempCategories) {
+                try {
+                  const { data: categoryData } = await supabase
+                    .from("feedback_categories")
+                    .insert({
+                      name: tempCat.name,
+                      description: tempCat.description || null,
+                      color: tempCat.color || null,
+                    })
+                    .select("id")
+                    .single();
+
+                  if (categoryData && categoryData.id) {
+                    // Map the new category to the feedback
+                    await supabase.from("feedback_category_mappings").insert({
+                      feedback_id: feedbackId,
+                      category_id: categoryData.id,
+                    });
+                  }
+                } catch (err) {
+                  console.error("Error creating category:", err);
+                }
+              }
+            } catch (categoryError) {
+              console.error("Error handling custom categories:", categoryError);
+            }
+          }
+
           // Return success response
           return {
             success: true,

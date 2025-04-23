@@ -163,6 +163,25 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({
 
             <div>
               <label className="text-sm font-medium text-slate-900 dark:text-white block mb-2">
+                Additional Categories (Optional)
+              </label>
+              <FeedbackCategorySelector
+                selectedCategories={customCategories}
+                availableCategories={availableCategories}
+                suggestedCategories={suggestedCategories}
+                onCategoriesChange={setCustomCategories}
+                onCreateCategory={(category) =>
+                  feedbackCategoriesService.createCategory(category)
+                }
+                maxCategories={5}
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                Add more specific categories to help organize your feedback
+              </p>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-slate-900 dark:text-white block mb-2">
                 Rating
               </label>
               <div className="flex">

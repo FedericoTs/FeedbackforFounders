@@ -1,7 +1,7 @@
 import React from "react";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { ThumbsUp, Target, Lightbulb } from "lucide-react";
+import { ThumbsUp, Target, Lightbulb, MessageCircle } from "lucide-react";
 
 interface FeedbackQualityMetrics {
   specificityScore: number;
@@ -14,7 +14,10 @@ interface FeedbackQualityIndicatorProps {
   metrics: FeedbackQualityMetrics;
   showLabels?: boolean;
   size?: "sm" | "md" | "lg";
-  variant?: "horizontal" | "vertical" | "compact";
+  variant?: "horizontal" | "vertical" | "compact" | "inline";
+  showSentiment?: boolean;
+  interactive?: boolean;
+  onMetricClick?: (metric: string) => void;
 }
 
 const FeedbackQualityIndicator = ({
@@ -22,6 +25,9 @@ const FeedbackQualityIndicator = ({
   showLabels = true,
   size = "md",
   variant = "horizontal",
+  showSentiment = false,
+  interactive = false,
+  onMetricClick,
 }: FeedbackQualityIndicatorProps) => {
   // Calculate overall quality score
   const qualityScore =
@@ -54,6 +60,15 @@ const FeedbackQualityIndicator = ({
     return "bg-slate-500";
   };
 
+  // Get sentiment color and label
+  const getSentimentInfo = (sentiment: number | undefined) => {
+    if (sentiment === undefined)
+      return { color: "bg-slate-500", label: "Neutral" };
+    if (sentiment >= 0.3) return { color: "bg-green-500", label: "Positive" };
+    if (sentiment <= -0.3) return { color: "bg-red-500", label: "Negative" };
+    return { color: "bg-amber-500", label: "Neutral" };
+  };
+
   // Size classes
   const sizeClasses = {
     sm: {
@@ -72,6 +87,33 @@ const FeedbackQualityIndicator = ({
       icon: "h-5 w-5",
     },
   };
+
+  // Handle metric click
+  const handleMetricClick = (metric: string) => {
+    if (interactive && onMetricClick) {
+      onMetricClick(metric);
+    }
+  };
+
+  if (variant === "inline") {
+    return (
+      <div className="inline-flex items-center gap-2">
+        <Badge
+          className={`${
+            getQualityLevel(qualityScore) === "Excellent"
+              ? "bg-green-100 text-green-700"
+              : getQualityLevel(qualityScore) === "Good"
+                ? "bg-teal-100 text-teal-700"
+                : getQualityLevel(qualityScore) === "Average"
+                  ? "bg-amber-100 text-amber-700"
+                  : "bg-slate-100 text-slate-700"
+          }`}
+        >
+          {Math.round(qualityScore * 100)}% Quality
+        </Badge>
+      </div>
+    );
+  }
 
   if (variant === "compact") {
     return (
@@ -150,6 +192,22 @@ const FeedbackQualityIndicator = ({
               className={`${sizeClasses[size].progress} ${getProgressColorClass(metrics.noveltyScore)}`}
             />
           </div>
+
+          {showSentiment && metrics.sentiment !== undefined && (
+            <div className="space-y-1">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-1">
+                  <MessageCircle className={sizeClasses[size].icon} />
+                  <span>Sentiment</span>
+                </div>
+                <span>{getSentimentInfo(metrics.sentiment).label}</span>
+              </div>
+              <Progress
+                value={(metrics.sentiment + 1) * 50} // Convert from -1...1 to 0...100
+                className={`${sizeClasses[size].progress} ${getSentimentInfo(metrics.sentiment).color}`}
+              />
+            </div>
+          )}
         </div>
 
         {showLabels && (
@@ -185,8 +243,13 @@ const FeedbackQualityIndicator = ({
         </div>
       )}
 
-      <div className={`grid grid-cols-3 gap-4 ${sizeClasses[size].container}`}>
-        <div className="space-y-1">
+      <div
+        className={`grid ${showSentiment && metrics.sentiment !== undefined ? "grid-cols-4" : "grid-cols-3"} gap-4 ${sizeClasses[size].container}`}
+      >
+        <div
+          className={`space-y-1 ${interactive ? "cursor-pointer hover:opacity-80" : ""}`}
+          onClick={() => handleMetricClick("specificity")}
+        >
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-1">
               <Target className={sizeClasses[size].icon} />
@@ -200,7 +263,10 @@ const FeedbackQualityIndicator = ({
           />
         </div>
 
-        <div className="space-y-1">
+        <div
+          className={`space-y-1 ${interactive ? "cursor-pointer hover:opacity-80" : ""}`}
+          onClick={() => handleMetricClick("actionability")}
+        >
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-1">
               <ThumbsUp className={sizeClasses[size].icon} />
@@ -214,7 +280,10 @@ const FeedbackQualityIndicator = ({
           />
         </div>
 
-        <div className="space-y-1">
+        <div
+          className={`space-y-1 ${interactive ? "cursor-pointer hover:opacity-80" : ""}`}
+          onClick={() => handleMetricClick("novelty")}
+        >
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-1">
               <Lightbulb className={sizeClasses[size].icon} />
@@ -227,6 +296,25 @@ const FeedbackQualityIndicator = ({
             className={`${sizeClasses[size].progress} ${getProgressColorClass(metrics.noveltyScore)}`}
           />
         </div>
+
+        {showSentiment && metrics.sentiment !== undefined && (
+          <div
+            className={`space-y-1 ${interactive ? "cursor-pointer hover:opacity-80" : ""}`}
+            onClick={() => handleMetricClick("sentiment")}
+          >
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-1">
+                <MessageCircle className={sizeClasses[size].icon} />
+                <span>Sentiment</span>
+              </div>
+              <span>{getSentimentInfo(metrics.sentiment).label}</span>
+            </div>
+            <Progress
+              value={(metrics.sentiment + 1) * 50} // Convert from -1...1 to 0...100
+              className={`${sizeClasses[size].progress} ${getSentimentInfo(metrics.sentiment).color}`}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

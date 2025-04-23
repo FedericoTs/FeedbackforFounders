@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
   TooltipContent,
@@ -22,19 +23,27 @@ import {
   ChevronDown,
   PanelLeft,
   PanelLeftClose,
+  Bell,
+  Award,
+  Users,
+  Zap,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 interface NavItem {
   icon: React.ReactNode;
   label: string;
   href?: string;
   isActive?: boolean;
+  badge?: number | string;
+  description?: string;
 }
 
 interface NavSection {
   title: string;
+  icon?: React.ReactNode;
   items: NavItem[];
+  defaultExpanded?: boolean;
 }
 
 interface SidebarProps {
@@ -43,56 +52,120 @@ interface SidebarProps {
   onItemClick?: (label: string) => void;
 }
 
-// Group navigation items into logical sections
+// Group navigation items into logical sections with improved organization
 const defaultNavSections: NavSection[] = [
   {
     title: "Overview",
+    icon: <Home size={16} />,
+    defaultExpanded: true,
     items: [
-      { icon: <Home size={18} />, label: "Home", href: "/" },
+      {
+        icon: <Home size={18} />,
+        label: "Home",
+        href: "/",
+        description: "Return to homepage",
+      },
       {
         icon: <LayoutDashboard size={18} />,
         label: "Dashboard",
         href: "/dashboard",
+        description: "View your personalized dashboard",
+      },
+      {
+        icon: <Bell size={18} />,
+        label: "Notifications",
+        href: "/dashboard/notifications",
+        badge: 3,
+        description: "View your notifications",
       },
     ],
   },
   {
-    title: "Content",
+    title: "Projects",
+    icon: <FolderKanban size={16} />,
+    defaultExpanded: true,
     items: [
       {
         icon: <FolderKanban size={18} />,
-        label: "Projects",
+        label: "My Projects",
         href: "/dashboard/projects",
+        description: "Manage your projects",
       },
       {
         icon: <Search size={18} />,
         label: "Discovery",
         href: "/dashboard/discovery",
+        description: "Discover new projects",
+      },
+      {
+        icon: <Users size={18} />,
+        label: "Collaborations",
+        href: "/dashboard/collaborations",
+        description: "View your project collaborations",
       },
     ],
   },
   {
     title: "Feedback",
+    icon: <MessageSquare size={16} />,
+    defaultExpanded: true,
     items: [
       {
         icon: <MessageSquare size={18} />,
         label: "Feedback",
         href: "/dashboard/feedback",
+        description: "View and manage feedback",
       },
       {
         icon: <BarChart2 size={18} />,
         label: "Feedback Analytics",
         href: "/dashboard/feedback-analytics",
+        description: "Analyze feedback data",
       },
     ],
   },
   {
-    title: "User",
+    title: "Rewards",
+    icon: <Award size={16} />,
+    defaultExpanded: false,
+    items: [
+      {
+        icon: <Award size={18} />,
+        label: "Achievements",
+        href: "/dashboard/achievements",
+        description: "View your achievements",
+      },
+      {
+        icon: <Zap size={18} />,
+        label: "Points & Rewards",
+        href: "/dashboard/rewards",
+        badge: "New",
+        description: "Check your points and rewards",
+      },
+    ],
+  },
+  {
+    title: "Account",
+    icon: <UserCircle size={16} />,
+    defaultExpanded: false,
     items: [
       {
         icon: <UserCircle size={18} />,
         label: "Profile",
         href: "/dashboard/profile",
+        description: "Manage your profile",
+      },
+      {
+        icon: <Settings size={18} />,
+        label: "Settings",
+        href: "/dashboard/settings",
+        description: "Configure your account settings",
+      },
+      {
+        icon: <HelpCircle size={18} />,
+        label: "Help",
+        href: "/dashboard/help",
+        description: "Get help and support",
       },
     ],
   },
@@ -104,16 +177,8 @@ const defaultFilters = [
   { color: "bg-yellow-500", label: "In Progress" },
 ];
 
-const defaultBottomItems: NavItem[] = [
-  {
-    icon: <Settings size={18} />,
-    label: "Settings",
-    href: "/dashboard/settings",
-  },
-  { icon: <HelpCircle size={18} />, label: "Help", href: "/dashboard/help" },
-];
-
 const Sidebar = ({ activeItem, onItemClick = () => {} }: SidebarProps) => {
+  const location = useLocation();
   // State for collapsed sidebar
   const [collapsed, setCollapsed] = useState(false);
 
@@ -121,10 +186,10 @@ const Sidebar = ({ activeItem, onItemClick = () => {} }: SidebarProps) => {
   const [expandedSections, setExpandedSections] = useState<
     Record<string, boolean>
   >(() => {
-    // Initialize all sections as expanded
+    // Initialize sections based on defaultExpanded property
     return defaultNavSections.reduce(
       (acc, section) => {
-        acc[section.title] = true;
+        acc[section.title] = section.defaultExpanded ?? true;
         return acc;
       },
       {} as Record<string, boolean>,
@@ -139,31 +204,28 @@ const Sidebar = ({ activeItem, onItemClick = () => {} }: SidebarProps) => {
     }));
   };
 
-  // Get the current path to determine active item
-  const path = window.location.pathname;
-  const currentPath = path.split("/").pop() || "dashboard";
-
-  // Map path to activeItem
-  const getActiveItem = () => {
-    if (path === "/dashboard") return "Dashboard";
-    if (currentPath === "discovery") return "Discovery";
-    if (currentPath === "feedback") return "Feedback";
-    if (currentPath === "feedback-analytics") return "Feedback Analytics";
-    if (currentPath === "analytics") return "Analytics";
-    if (currentPath === "projects") return "Projects";
-    if (currentPath === "profile") return "Profile";
-    if (currentPath === "settings") return "Settings";
-    if (currentPath === "help") return "Help";
-    return activeItem || "Dashboard";
+  // Determine if a nav item is active based on the current path
+  const isNavItemActive = (href: string = ""): boolean => {
+    if (href === "/" && location.pathname === "/") return true;
+    if (href === "/dashboard" && location.pathname === "/dashboard")
+      return true;
+    if (
+      href !== "/" &&
+      href !== "/dashboard" &&
+      location.pathname.startsWith(href)
+    )
+      return true;
+    return false;
   };
-
-  const currentActiveItem = getActiveItem();
 
   // Handle responsive behavior
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth < 768) {
         setCollapsed(true);
+      } else if (window.innerWidth > 1280) {
+        // Expand on larger screens
+        setCollapsed(false);
       }
     };
 
@@ -174,12 +236,27 @@ const Sidebar = ({ activeItem, onItemClick = () => {} }: SidebarProps) => {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // Expand section when a child item is active
+  useEffect(() => {
+    defaultNavSections.forEach((section) => {
+      const hasActiveChild = section.items.some((item) =>
+        isNavItemActive(item.href),
+      );
+      if (hasActiveChild && !expandedSections[section.title]) {
+        setExpandedSections((prev) => ({
+          ...prev,
+          [section.title]: true,
+        }));
+      }
+    });
+  }, [location.pathname]);
+
   return (
     <div
-      className={`h-full border-r border-gray-200 bg-white flex flex-col transition-all duration-300 ${collapsed ? "w-[70px]" : "w-[240px]"} shadow-sm z-20`}
+      className={`h-full border-r border-gray-200 bg-white flex flex-col transition-all duration-300 ${collapsed ? "w-[70px]" : "w-[260px]"} shadow-sm z-20`}
     >
       <div
-        className={`p-4 flex ${collapsed ? "justify-center" : "justify-between"} items-center`}
+        className={`p-4 flex ${collapsed ? "justify-center" : "justify-between"} items-center border-b border-gray-100`}
       >
         {!collapsed && (
           <div>
@@ -192,27 +269,42 @@ const Sidebar = ({ activeItem, onItemClick = () => {} }: SidebarProps) => {
           size="icon"
           onClick={() => setCollapsed(!collapsed)}
           className="h-8 w-8 rounded-full hover:bg-slate-100"
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {collapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}
         </Button>
       </div>
 
-      <ScrollArea className="flex-1 px-3">
-        <TooltipProvider>
+      <ScrollArea className="flex-1 px-3 py-2">
+        <TooltipProvider delayDuration={200}>
           {defaultNavSections.map((section) => (
-            <div key={section.title} className="mb-4">
+            <div key={section.title} className="mb-6">
               {/* Section Header */}
               <div
-                className={`flex items-center ${collapsed ? "justify-center" : "justify-between"} mb-1 cursor-pointer`}
+                className={`flex items-center ${collapsed ? "justify-center" : "justify-between"} mb-2 cursor-pointer group`}
                 onClick={() => !collapsed && toggleSection(section.title)}
               >
                 {!collapsed && (
-                  <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    {section.title}
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    {section.icon && (
+                      <span className="text-gray-500">{section.icon}</span>
+                    )}
+                    <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      {section.title}
+                    </h3>
+                  </div>
                 )}
                 {!collapsed && (
-                  <Button variant="ghost" size="icon" className="h-5 w-5">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5 opacity-60 group-hover:opacity-100"
+                    aria-label={
+                      expandedSections[section.title]
+                        ? "Collapse section"
+                        : "Expand section"
+                    }
+                  >
                     {expandedSections[section.title] ? (
                       <ChevronDown size={14} />
                     ) : (
@@ -226,31 +318,96 @@ const Sidebar = ({ activeItem, onItemClick = () => {} }: SidebarProps) => {
               {/* Section Items */}
               {(collapsed || expandedSections[section.title]) && (
                 <div className="space-y-1">
-                  {section.items.map((item) => (
-                    <Tooltip key={item.label}>
-                      <TooltipTrigger asChild>
-                        <Link to={item.href || "#"} className="w-full">
-                          <Button
-                            variant={
-                              item.label === currentActiveItem
-                                ? "secondary"
-                                : "ghost"
-                            }
-                            className={`w-full ${collapsed ? "justify-center px-2" : "justify-start gap-2"} text-sm h-10`}
-                            onClick={() => onItemClick(item.label)}
+                  {section.items.map((item) => {
+                    const isActive = isNavItemActive(item.href);
+                    return (
+                      <Tooltip key={item.label}>
+                        <TooltipTrigger asChild>
+                          <Link to={item.href || "#"} className="w-full block">
+                            <Button
+                              variant={isActive ? "secondary" : "ghost"}
+                              className={`w-full ${collapsed ? "justify-center px-2" : "justify-start gap-2"} text-sm h-10 relative ${isActive ? "font-medium" : ""}`}
+                              onClick={() => onItemClick(item.label)}
+                            >
+                              <span
+                                className={`${isActive ? "text-primary" : "text-gray-500"}`}
+                              >
+                                {item.icon}
+                              </span>
+                              {!collapsed && (
+                                <span className="flex-1 text-left">
+                                  {item.label}
+                                </span>
+                              )}
+                              {!collapsed && item.badge && (
+                                <Badge
+                                  variant={
+                                    typeof item.badge === "string"
+                                      ? "outline"
+                                      : "default"
+                                  }
+                                  className={
+                                    typeof item.badge === "string"
+                                      ? "bg-blue-50 text-blue-600 hover:bg-blue-50"
+                                      : ""
+                                  }
+                                >
+                                  {item.badge}
+                                </Badge>
+                              )}
+                              {collapsed && item.badge && (
+                                <Badge
+                                  className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center"
+                                  variant={
+                                    typeof item.badge === "string"
+                                      ? "outline"
+                                      : "default"
+                                  }
+                                >
+                                  {typeof item.badge === "number"
+                                    ? item.badge
+                                    : ""}
+                                </Badge>
+                              )}
+                            </Button>
+                          </Link>
+                        </TooltipTrigger>
+                        {collapsed && (
+                          <TooltipContent
+                            side="right"
+                            className="max-w-[200px]"
                           >
-                            {item.icon}
-                            {!collapsed && <span>{item.label}</span>}
-                          </Button>
-                        </Link>
-                      </TooltipTrigger>
-                      {collapsed && (
-                        <TooltipContent side="right">
-                          {item.label}
-                        </TooltipContent>
-                      )}
-                    </Tooltip>
-                  ))}
+                            <div>
+                              <p className="font-medium">{item.label}</p>
+                              {item.description && (
+                                <p className="text-xs text-gray-500">
+                                  {item.description}
+                                </p>
+                              )}
+                              {item.badge && (
+                                <div className="mt-1">
+                                  <Badge
+                                    variant={
+                                      typeof item.badge === "string"
+                                        ? "outline"
+                                        : "default"
+                                    }
+                                    className={
+                                      typeof item.badge === "string"
+                                        ? "bg-blue-50 text-blue-600 hover:bg-blue-50"
+                                        : ""
+                                    }
+                                  >
+                                    {item.badge}
+                                  </Badge>
+                                </div>
+                              )}
+                            </div>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -261,50 +418,37 @@ const Sidebar = ({ activeItem, onItemClick = () => {} }: SidebarProps) => {
           {/* Filters Section */}
           {!collapsed && (
             <div className="space-y-1 mb-4">
-              <h3 className="text-xs font-medium px-3 py-2 text-gray-500 uppercase tracking-wider">
-                Filters
-              </h3>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-gray-500">
+                  <Search size={16} />
+                </span>
+                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Quick Filters
+                </h3>
+              </div>
               {defaultFilters.map((filter) => (
                 <Button
                   key={filter.label}
                   variant="ghost"
-                  className="w-full justify-start gap-2 text-sm h-9"
+                  className="w-full justify-start gap-2 text-sm h-9 px-3"
                 >
                   <span
                     className={`h-2 w-2 rounded-full ${filter.color}`}
                   ></span>
-                  {filter.label}
+                  <span className="text-gray-700">{filter.label}</span>
                 </Button>
               ))}
             </div>
           )}
-
-          {/* Bottom Items */}
-          <div className={`space-y-1 ${collapsed ? "mt-4" : ""}`}>
-            {defaultBottomItems.map((item) => (
-              <Tooltip key={item.label}>
-                <TooltipTrigger asChild>
-                  <Link to={item.href || "#"} className="w-full">
-                    <Button
-                      variant={
-                        item.label === currentActiveItem ? "secondary" : "ghost"
-                      }
-                      className={`w-full ${collapsed ? "justify-center px-2" : "justify-start gap-2"} text-sm h-10`}
-                      onClick={() => onItemClick(item.label)}
-                    >
-                      {item.icon}
-                      {!collapsed && <span>{item.label}</span>}
-                    </Button>
-                  </Link>
-                </TooltipTrigger>
-                {collapsed && (
-                  <TooltipContent side="right">{item.label}</TooltipContent>
-                )}
-              </Tooltip>
-            ))}
-          </div>
         </TooltipProvider>
       </ScrollArea>
+
+      {/* Footer with version info */}
+      {!collapsed && (
+        <div className="p-3 border-t border-gray-100 text-xs text-gray-500">
+          <p>Feedback Ecosystem v1.0</p>
+        </div>
+      )}
     </div>
   );
 };
