@@ -22,7 +22,7 @@ import Projects from "./components/pages/Projects";
 import ProjectDetails from "./components/pages/ProjectDetails";
 import Profile from "./components/pages/Profile";
 import Success from "./components/pages/success";
-import Home from "./components/pages/home";
+import Home from "./components/pages/home.tsx";
 import FeedbackAnalytics from "./components/pages/FeedbackAnalytics";
 import Notifications from "./components/pages/Notifications";
 import AdminDashboard from "./components/pages/AdminDashboard";

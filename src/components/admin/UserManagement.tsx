@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { ROLES, Role } from "@/lib/roles";
 import PermissionGate from "../auth/PermissionGate";
+import { roleService } from "@/services/roleService";
 
 interface User {
   id: string;

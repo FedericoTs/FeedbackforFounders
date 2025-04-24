@@ -50,7 +50,7 @@ import {
   Compass,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useAuth } from "../../../supabase/auth";
+import { useAuth } from "@/supabase/auth";
 import {
   Card,
   CardContent,

@@ -1,18 +1,12 @@
-/**
- * Token management utilities for secure authentication
- */
-
 import { supabase } from "@/supabase/supabase";
 
 /**
- * Store a token securely in localStorage with encryption
+ * Stores a token in localStorage
  * @param key The key to store the token under
  * @param token The token to store
  */
 export function storeToken(key: string, token: string): void {
   try {
-    // In a production environment, consider using more secure storage methods
-    // or implementing client-side encryption
     localStorage.setItem(key, token);
   } catch (error) {
     console.error("Error storing token:", error);
@@ -20,9 +14,9 @@ export function storeToken(key: string, token: string): void {
 }
 
 /**
- * Retrieve a token from secure storage
+ * Retrieves a token from localStorage
  * @param key The key the token is stored under
- * @returns The token or null if not found
+ * @returns The token, or null if not found
  */
 export function getToken(key: string): string | null {
   try {
@@ -34,7 +28,7 @@ export function getToken(key: string): string | null {
 }
 
 /**
- * Remove a token from secure storage
+ * Removes a token from localStorage
  * @param key The key the token is stored under
  */
 export function removeToken(key: string): void {
@@ -46,19 +40,20 @@ export function removeToken(key: string): void {
 }
 
 /**
- * Parse a JWT token to extract its payload
- * @param token The JWT token
- * @returns The decoded payload or null if invalid
+ * Parses a JWT token to extract its payload
+ * @param token The JWT token to parse
+ * @returns The parsed payload, or null if invalid
  */
-export function parseJwt(token: string): any | null {
+export function parseJwt(token: string): any {
   try {
     const base64Url = token.split(".")[1];
     const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
     const jsonPayload = decodeURIComponent(
-      window
-        .atob(base64)
+      atob(base64)
         .split("")
-        .map((c) => `%${("00" + c.charCodeAt(0).toString(16)).slice(-2)}`)
+        .map((c) => {
+          return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
+        })
         .join(""),
     );
 
@@ -70,22 +65,21 @@ export function parseJwt(token: string): any | null {
 }
 
 /**
- * Check if a token is expired
- * @param token The JWT token
+ * Checks if a token is expired
+ * @param token The token to check
  * @returns True if the token is expired, false otherwise
  */
 export function isTokenExpired(token: string): boolean {
   const payload = parseJwt(token);
   if (!payload || !payload.exp) return true;
 
-  // exp is in seconds, Date.now() is in milliseconds
-  const expirationTime = payload.exp * 1000;
+  const expirationTime = payload.exp * 1000; // Convert to milliseconds
   return Date.now() >= expirationTime;
 }
 
 /**
- * Refresh the authentication token
- * @returns A promise resolving to the new session or null if refresh failed
+ * Refreshes the current session token
+ * @returns The refreshed session, or null if refresh failed
  */
 export async function refreshToken() {
   try {
@@ -99,8 +93,8 @@ export async function refreshToken() {
 }
 
 /**
- * Set up automatic token refresh before expiration
- * @param expiresIn Time in seconds until token expires
+ * Sets up automatic token refresh before expiration
+ * @param expiresIn Token expiration time in seconds
  * @param refreshBuffer Time in seconds before expiration to refresh (default: 5 minutes)
  * @returns A function to cancel the refresh timer
  */
@@ -108,7 +102,7 @@ export function setupTokenRefresh(
   expiresIn: number,
   refreshBuffer: number = 300,
 ): () => void {
-  // Calculate when to refresh (expiration time minus buffer)
+  // Calculate refresh time (expiration time minus buffer)
   const refreshTime = (expiresIn - refreshBuffer) * 1000;
 
   // Set up timer to refresh token
@@ -116,22 +110,87 @@ export function setupTokenRefresh(
     await refreshToken();
   }, refreshTime);
 
-  // Return function to cancel timer if needed
+  // Return function to cancel timer
   return () => clearTimeout(timerId);
 }
 
 /**
- * Revoke all refresh tokens for the current user
- * @returns A promise resolving to true if successful, false otherwise
+ * Revokes all tokens for the current user (signs out from all devices)
+ * @returns True if successful, false otherwise
  */
 export async function revokeAllTokens(): Promise<boolean> {
   try {
-    // Sign out from all devices
     const { error } = await supabase.auth.signOut({ scope: "global" });
     if (error) throw error;
     return true;
   } catch (error) {
     console.error("Error revoking tokens:", error);
     return false;
+  }
+}
+
+/**
+ * Gets information about the current session
+ * @returns Session information including validity and time remaining
+ */
+export async function getSessionInfo() {
+  try {
+    const { data } = await supabase.auth.getSession();
+    const session = data.session;
+
+    if (!session) {
+      return {
+        valid: false,
+        expiresAt: null,
+        timeRemaining: 0,
+        issuedAt: null,
+      };
+    }
+
+    const expiresAt = new Date(session.expires_at || "");
+    const issuedAt = new Date(session.created_at || "");
+    const now = new Date();
+    const timeRemaining = expiresAt.getTime() - now.getTime();
+
+    return {
+      valid: timeRemaining > 0,
+      expiresAt,
+      timeRemaining: Math.max(0, timeRemaining),
+      issuedAt,
+    };
+  } catch (error) {
+    console.error("Error getting session info:", error);
+    return {
+      valid: false,
+      expiresAt: null,
+      timeRemaining: 0,
+      issuedAt: null,
+    };
+  }
+}
+
+/**
+ * Formats a time duration in milliseconds to a human-readable string
+ * @param milliseconds Time in milliseconds
+ * @returns Formatted time string
+ */
+export function formatTimeDuration(milliseconds: number): string {
+  if (milliseconds <= 0) {
+    return "Expired";
+  }
+
+  const seconds = Math.floor(milliseconds / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (days > 0) {
+    return `${days}d ${hours % 24}h`;
+  } else if (hours > 0) {
+    return `${hours}h ${minutes % 60}m`;
+  } else if (minutes > 0) {
+    return `${minutes}m ${seconds % 60}s`;
+  } else {
+    return `${seconds}s`;
   }
 }

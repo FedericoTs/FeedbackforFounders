@@ -117,9 +117,16 @@ export default function SessionManagement() {
     try {
       setTerminating(sessionId);
 
-      // In a real implementation, this would call a backend API to terminate the session
-      // For now, we'll simulate it with a delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // If terminating all sessions
+      if (sessionId === "all") {
+        // Sign out from all devices using the enhanced auth context
+        await user.signOutAllDevices();
+        toast({
+          title: "Success",
+          description: "You have been signed out from all devices.",
+        });
+        return;
+      }
 
       // If it's the current session, sign out
       const isCurrentSession = sessions.find(
@@ -127,13 +134,17 @@ export default function SessionManagement() {
       )?.current;
 
       if (isCurrentSession) {
-        await supabase.auth.signOut();
+        await user.signOut();
         toast({
           title: "Signed Out",
           description: "You have been signed out of your current session.",
         });
         return;
       }
+
+      // For other sessions, we would call a backend API to terminate the session
+      // For now, we'll simulate it with a delay
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
       // Remove the session from the list
       setSessions((prev) => prev.filter((session) => session.id !== sessionId));

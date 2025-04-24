@@ -22,6 +22,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { ROLES, Role } from "@/lib/roles";
 import PermissionGate from "../auth/PermissionGate";
+import { roleService } from "@/services/roleService";
 
 export default function RoleAssignment() {
   const { toast } = useToast();
