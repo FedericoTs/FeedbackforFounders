@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useSearchParams } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import TopNavigation from "./TopNavigation";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,8 @@ import { Menu } from "lucide-react";
 const DashboardLayout = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobileView, setIsMobileView] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Handle responsive behavior
   useEffect(() => {
@@ -24,6 +26,28 @@ const DashboardLayout = () => {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  // Initialize search query from URL params if present
+  useEffect(() => {
+    const query = searchParams.get("q");
+    if (query) {
+      setSearchQuery(query);
+    }
+  }, [searchParams]);
+
+  // Handle search
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+
+    // Update URL search params
+    if (query) {
+      setSearchParams({ q: query });
+    } else {
+      // Remove the search param if query is empty
+      searchParams.delete("q");
+      setSearchParams(searchParams);
+    }
+  };
 
   return (
     <div className="flex h-screen bg-[#FAFBFF] dark:bg-slate-900 relative">
@@ -57,9 +81,12 @@ const DashboardLayout = () => {
         <TopNavigation
           onMenuClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           isMobileView={isMobileView}
+          onSearch={handleSearch}
+          searchValue={searchQuery}
         />
         <main className="flex-1 overflow-y-auto pt-16 px-4 sm:px-6 pb-6">
-          <Outlet />
+          {/* Pass search query to child components via context or props if needed */}
+          <Outlet context={{ searchQuery }} />
         </main>
       </div>
     </div>

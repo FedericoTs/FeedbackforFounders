@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Bell, Home, Search, Settings, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,17 +22,36 @@ import { Link } from "react-router-dom";
 
 interface TopNavigationProps {
   onSearch?: (query: string) => void;
+  searchValue?: string;
   notifications?: Array<{ id: string; title: string }>;
+  onMenuClick?: () => void;
+  isMobileView?: boolean;
 }
 
 const TopNavigation = ({
   onSearch = () => {},
+  searchValue = "",
   notifications = [
     { id: "1", title: "New project assigned" },
     { id: "2", title: "Meeting reminder" },
   ],
+  onMenuClick,
+  isMobileView,
 }: TopNavigationProps) => {
   const { user, signOut } = useAuth();
+  const [inputValue, setInputValue] = useState(searchValue);
+
+  // Update input value when searchValue prop changes
+  useEffect(() => {
+    setInputValue(searchValue);
+  }, [searchValue]);
+
+  // Handle input change
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setInputValue(value);
+    onSearch(value);
+  };
 
   if (!user) return null;
 
@@ -47,7 +66,8 @@ const TopNavigation = ({
           <Input
             placeholder="Search projects..."
             className="pl-8 h-9 text-sm border-gray-200 focus:border-gray-300"
-            onChange={(e) => onSearch(e.target.value)}
+            value={inputValue}
+            onChange={handleInputChange}
           />
         </div>
       </div>

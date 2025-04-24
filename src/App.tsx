@@ -1,9 +1,18 @@
 import { Suspense } from "react";
 import ErrorBoundary from "./components/ErrorBoundary";
-import { Navigate, Route, Routes, useRoutes } from "react-router-dom";
+import {
+  Navigate,
+  Route,
+  Routes,
+  useRoutes,
+  useLocation,
+} from "react-router-dom";
 import routes from "tempo-routes";
-import LoginForm from "./components/auth/LoginForm";
-import SignUpForm from "./components/auth/SignUpForm";
+import EnhancedLoginForm from "./components/auth/EnhancedLoginForm";
+import EnhancedSignUpForm from "./components/auth/EnhancedSignUpForm";
+import ForgotPasswordForm from "./components/auth/ForgotPasswordForm";
+import ResetPasswordForm from "./components/auth/ResetPasswordForm";
+import EmailVerification from "./components/auth/EmailVerification";
 import Dashboard from "./components/pages/Dashboard";
 import Discovery from "./components/pages/Discovery";
 import FeedbackInterface from "./components/pages/FeedbackInterface";
@@ -16,24 +25,58 @@ import Success from "./components/pages/success";
 import Home from "./components/pages/home";
 import FeedbackAnalytics from "./components/pages/FeedbackAnalytics";
 import Notifications from "./components/pages/Notifications";
+import AdminDashboard from "./components/pages/AdminDashboard";
 import { AuthProvider, useAuth } from "./supabase/auth";
 import { Toaster } from "./components/ui/toaster";
 import { ThemeProvider } from "./components/ui/theme-provider";
 import DashboardLayout from "./components/dashboard/layout/DashboardLayout";
 import { AwardToastProvider } from "./hooks/useAwardToast";
 import { AwardToastListener } from "./components/AwardToastListener";
+import { Spinner } from "./components/ui/spinner";
 
-function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+interface PrivateRouteProps {
+  children: React.ReactNode;
+  requiredPermission?: string;
+  redirectTo?: string;
+}
 
+function PrivateRoute({
+  children,
+  requiredPermission,
+  redirectTo = "/login",
+}: PrivateRouteProps) {
+  const { user, loading, hasPermission } = useAuth();
+  const location = useLocation();
+
+  // Show loading state
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Spinner className="h-6 w-6 text-teal-500" />
+        <span className="ml-2 text-slate-600">Loading authentication...</span>
+      </div>
+    );
   }
 
+  // Redirect if not authenticated
   if (!user) {
-    return <Navigate to="/login" />;
+    return (
+      <Navigate to={redirectTo} state={{ from: location.pathname }} replace />
+    );
   }
 
+  // Check for required permission
+  if (requiredPermission && !hasPermission(requiredPermission)) {
+    return (
+      <Navigate
+        to="/unauthorized"
+        state={{ from: location.pathname }}
+        replace
+      />
+    );
+  }
+
+  // Render children if authenticated and authorized
   return <>{children}</>;
 }
 
@@ -47,8 +90,11 @@ function AppRoutes() {
       {tempoRoutes}
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/login" element={<LoginForm />} />
-        <Route path="/signup" element={<SignUpForm />} />
+        <Route path="/login" element={<EnhancedLoginForm />} />
+        <Route path="/signup" element={<EnhancedSignUpForm />} />
+        <Route path="/forgot-password" element={<ForgotPasswordForm />} />
+        <Route path="/reset-password" element={<ResetPasswordForm />} />
+        <Route path="/verify-email" element={<EmailVerification />} />
         <Route path="/success" element={<Success />} />
 
         {/* Dashboard routes with shared layout */}
@@ -75,6 +121,7 @@ function AppRoutes() {
           />
           <Route path="project-discovery" element={<ProjectDiscovery />} />
           <Route path="notifications" element={<Notifications />} />
+          <Route path="admin" element={<AdminDashboard />} />
         </Route>
 
         {/* Add this before any catchall route to allow Tempo to capture routes */}

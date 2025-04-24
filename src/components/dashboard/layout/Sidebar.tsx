@@ -169,6 +169,19 @@ const defaultNavSections: NavSection[] = [
       },
     ],
   },
+  {
+    title: "Administration",
+    icon: <Users size={16} />,
+    defaultExpanded: false,
+    items: [
+      {
+        icon: <Users size={18} />,
+        label: "Admin Dashboard",
+        href: "/dashboard/admin",
+        description: "Manage users, roles, and permissions",
+      },
+    ],
+  },
 ];
 
 const defaultFilters = [
