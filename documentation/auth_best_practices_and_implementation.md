@@ -401,7 +401,7 @@ vi.mock("../supabase/auth", () => ({
 | Task ID | Description | Dependencies | Estimated Effort | Status |
 |---------|-------------|--------------|------------------|--------|
 | 4.1 | Integrate rate limiting with auth | None | Medium | Not Started |
-| 4.2 | Implement account lockout | 4.1 | Medium | Not Started |
+|
 | 4.3 | Add session timeout with warnings | None | Medium | Not Started |
 | 4.4 | Create session management UI | 4.3 | High | Completed |
 | 4.5 | Implement 2FA support | None | High | Not Started |
