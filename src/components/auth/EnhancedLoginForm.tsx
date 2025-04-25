@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "@/supabase/auth";
 import { useToast } from "@/components/ui/use-toast";
@@ -11,11 +11,13 @@ import { LogIn } from "lucide-react";
 import AuthLayout from "./AuthLayout";
 import AuthErrorBoundary from "./AuthErrorBoundary";
 import AuthError from "../ui/auth-error";
+import AuthRetryIndicator from "../ui/auth-retry-indicator";
 import {
   createStandardError,
   ErrorCategory,
   ErrorSeverity,
 } from "@/lib/errorHandler";
+import { withAuthRetry } from "@/lib/authUtils";
 
 export default function EnhancedLoginForm() {
   const [email, setEmail] = useState("");
@@ -25,6 +27,11 @@ export default function EnhancedLoginForm() {
   const [standardError, setStandardError] = useState<ReturnType<
     typeof createStandardError
   > | null>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [retryAttempt, setRetryAttempt] = useState(0);
+  const maxRetryAttempts = 3;
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const { signIn, authError } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -38,6 +45,14 @@ export default function EnhancedLoginForm() {
     return () => {
       setStandardError(null);
       setIsLoading(false);
+      setIsRetrying(false);
+      setRetryAttempt(0);
+
+      // Clear any pending retry timeouts
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
     };
   }, []);
 
@@ -58,22 +73,62 @@ export default function EnhancedLoginForm() {
     e.preventDefault();
     setIsLoading(true);
     setStandardError(null);
+    setIsRetrying(false);
+    setRetryAttempt(0);
 
     try {
-      const { error } = await signIn(email, password, { rememberMe });
+      // Use withAuthRetry for automatic retry with exponential backoff
+      const result = await withAuthRetry(
+        async () => {
+          const result = await signIn(email, password, { rememberMe });
+          if (result.error) {
+            throw result.error;
+          }
+          return result;
+        },
+        {
+          maxRetries: maxRetryAttempts,
+          onRetry: (error, attempt, delay) => {
+            console.log(
+              `Retry attempt ${attempt} after ${delay}ms due to:`,
+              error,
+            );
+            setIsRetrying(true);
+            setRetryAttempt(attempt);
 
-      if (error) {
-        setStandardError(
-          createStandardError(
-            error,
-            ErrorCategory.AUTHENTICATION,
-            ErrorSeverity.ERROR,
-          ),
-        );
-        return;
-      }
+            // Update UI to show retry progress
+            toast({
+              title: "Retrying login",
+              description: `Attempt ${attempt} of ${maxRetryAttempts}. Please wait...`,
+              variant: "default",
+            });
+          },
+          onFailure: (error, attempts) => {
+            console.error(`Failed after ${attempts} attempts:`, error);
+            setIsRetrying(false);
+            setStandardError(
+              createStandardError(
+                error,
+                ErrorCategory.AUTHENTICATION,
+                ErrorSeverity.ERROR,
+              ),
+            );
+          },
+          isRetryable: (error) => {
+            // Only retry network or server errors, not invalid credentials
+            if (
+              error.message?.includes("Invalid login credentials") ||
+              error.message?.includes("Invalid email") ||
+              error.message?.includes("Invalid password")
+            ) {
+              return false;
+            }
+            return true;
+          },
+        },
+      );
 
-      // Show success toast
+      // If we get here, the login was successful
       toast({
         title: "Login successful",
         description: "Welcome back to FeedbackLoop!",
@@ -83,6 +138,7 @@ export default function EnhancedLoginForm() {
       // Navigate to the redirect path
       navigate(from, { replace: true });
     } catch (err: any) {
+      // This will only be reached if all retries fail or the error is not retryable
       setStandardError(
         createStandardError(
           err,
@@ -92,11 +148,18 @@ export default function EnhancedLoginForm() {
       );
     } finally {
       setIsLoading(false);
+      setIsRetrying(false);
     }
   };
 
   const handleRetry = () => {
     setStandardError(null);
+  };
+
+  const handleManualRetry = () => {
+    // Manually trigger a retry of the login process
+    setStandardError(null);
+    handleSubmit(new Event("submit") as unknown as React.FormEvent);
   };
 
   return (
@@ -169,7 +232,19 @@ export default function EnhancedLoginForm() {
               </div>
 
               {standardError && (
-                <AuthError error={standardError} onRetry={handleRetry} />
+                <div className="space-y-2">
+                  <AuthError error={standardError} onRetry={handleRetry} />
+
+                  {/* Show retry indicator when retrying */}
+                  {isRetrying && standardError.retryable && (
+                    <AuthRetryIndicator
+                      attempt={retryAttempt}
+                      maxAttempts={maxRetryAttempts}
+                      message="Retrying login..."
+                      onManualRetry={handleManualRetry}
+                    />
+                  )}
+                </div>
               )}
 
               <Button

@@ -24,8 +24,6 @@ import {
   isRateLimited,
   recordFailedAttempt,
   resetRateLimit,
-  getRateLimitTimeRemaining,
-  formatRateLimitTimeRemaining,
 } from "../lib/rateLimiter";
 
 // Session information type definition
@@ -439,17 +437,14 @@ export default function AuthProvider({
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// Create a separate context hook for better Fast Refresh compatibility
-const useAuthContext = () => {
+// Export the hook as a named export
+export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
-};
-
-// Export the hook as a named export
-export const useAuth = useAuthContext;
+}
 
 // Helper function to check if a user is authenticated
 export function useIsAuthenticated() {

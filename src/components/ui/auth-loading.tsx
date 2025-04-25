@@ -1,6 +1,6 @@
 import React from "react";
-import { Spinner } from "./spinner";
 import { cn } from "@/lib/utils";
+import { Spinner } from "./spinner";
 
 export type LoadingSize = "xs" | "sm" | "md" | "lg";
 export type LoadingVariant = "default" | "primary" | "secondary" | "ghost";
@@ -197,4 +197,4 @@ export function ButtonLoading({ text = "Processing..." }: { text?: string }) {
   );
 }
 
-export default AuthLoading;
+export { Spinner };

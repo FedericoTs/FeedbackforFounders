@@ -21,7 +21,7 @@ import {
   Shield,
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { useAuth } from "../../../supabase/auth";
+import { useAuth } from "@/supabase/auth";
 import { supabase } from "../../../supabase/supabase";
 
 // Define the Plan type

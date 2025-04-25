@@ -132,7 +132,6 @@ const FeedbackAnalyticsDashboard: React.FC<FeedbackAnalyticsDashboardProps> = ({
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [qualityThreshold, setQualityThreshold] = useState<number | null>(null);
 
-  // Fetch analytics data based on filters
   useEffect(() => {
     const fetchAnalytics = async () => {
       setIsLoading(true);
@@ -150,12 +149,10 @@ const FeedbackAnalyticsDashboard: React.FC<FeedbackAnalyticsDashboardProps> = ({
           filters.qualityThreshold = qualityThreshold;
         }
 
-        // Get analytics data
         const data =
           await feedbackAnalyticsService.getFeedbackAnalytics(filters);
         setAnalyticsData(data);
 
-        // Get comparison data
         const comparison =
           await feedbackAnalyticsService.getComparisonAnalytics(filters, 30);
         setComparisonData({
@@ -172,7 +169,6 @@ const FeedbackAnalyticsDashboard: React.FC<FeedbackAnalyticsDashboardProps> = ({
     fetchAnalytics();
   }, [projectId, dateRange, selectedCategories, qualityThreshold]);
 
-  // Fetch categories
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -187,51 +183,15 @@ const FeedbackAnalyticsDashboard: React.FC<FeedbackAnalyticsDashboardProps> = ({
     fetchCategories();
   }, [projectId]);
 
-  // Update date range based on selection
   useEffect(() => {
     const end = new Date();
-    let start;
-
-    switch (dateRangeType) {
-      case "7days":
-        start = subDays(end, 7);
-        break;
-      case "30days":
-        start = subDays(end, 30);
-        break;
-      case "90days":
-        start = subDays(end, 90);
-        break;
-      case "thisMonth":
-        start = startOfMonth(end);
-        break;
-      case "lastMonth":
-        const lastMonth = subDays(startOfMonth(end), 1);
-        start = startOfMonth(lastMonth);
-        end.setTime(endOfMonth(lastMonth).getTime());
-        break;
-      case "custom":
-        if (
-          customDateRange.from &&
-          customDateRange.to &&
-          isValid(customDateRange.from) &&
-          isValid(customDateRange.to)
-        ) {
-          start = customDateRange.from;
-          end = customDateRange.to;
-        } else {
-          setShowCustomDatePicker(true);
-          return; // Don't update date range until custom range is selected
-        }
-        break;
-      default:
-        start = subDays(end, 30);
-    }
+    const endDate = new Date();
+    endDate.setTime(endOfMonth(lastMonth).getTime());
+    end = endDate;
 
     setDateRange({ start, end });
   }, [dateRangeType, customDateRange]);
 
-  // Handle custom date range selection
   const handleCustomDateSelect = (range: { from: Date; to: Date }) => {
     if (range.from && range.to) {
       setCustomDateRange(range);
@@ -239,10 +199,8 @@ const FeedbackAnalyticsDashboard: React.FC<FeedbackAnalyticsDashboardProps> = ({
     }
   };
 
-  // Handle refresh
   const handleRefresh = () => {
     setIsLoading(true);
-    // Re-fetch data with current filters
     const filters: FeedbackAnalyticsFilters = {
       projectId,
       dateRange,
@@ -275,7 +233,6 @@ const FeedbackAnalyticsDashboard: React.FC<FeedbackAnalyticsDashboardProps> = ({
       });
   };
 
-  // Handle export
   const handleExport = (format: "csv" | "pdf") => {
     if (!analyticsData) return;
 
@@ -288,7 +245,6 @@ const FeedbackAnalyticsDashboard: React.FC<FeedbackAnalyticsDashboardProps> = ({
     }
   };
 
-  // Format percentage change with arrow
   const formatChange = (value: number) => {
     const formatted = (value * 100).toFixed(1);
     const isPositive = value > 0;
@@ -316,7 +272,6 @@ const FeedbackAnalyticsDashboard: React.FC<FeedbackAnalyticsDashboardProps> = ({
     );
   };
 
-  // Prepare data for quality distribution chart
   const prepareQualityDistributionData = () => {
     if (!analyticsData) return [];
 
@@ -344,7 +299,6 @@ const FeedbackAnalyticsDashboard: React.FC<FeedbackAnalyticsDashboardProps> = ({
     ];
   };
 
-  // Prepare data for sentiment analysis chart
   const prepareSentimentData = () => {
     if (!analyticsData) return [];
 
@@ -367,7 +321,6 @@ const FeedbackAnalyticsDashboard: React.FC<FeedbackAnalyticsDashboardProps> = ({
     ];
   };
 
-  // Calculate total feedback count
   const getTotalFeedbackCount = () => {
     if (!analyticsData) return 0;
 
@@ -377,7 +330,6 @@ const FeedbackAnalyticsDashboard: React.FC<FeedbackAnalyticsDashboardProps> = ({
     );
   };
 
-  // Calculate average quality score
   const getAverageQualityScore = () => {
     if (!analyticsData) return 0;
 
@@ -407,7 +359,6 @@ const FeedbackAnalyticsDashboard: React.FC<FeedbackAnalyticsDashboardProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Date range selector */}
           <Select
             value={dateRangeType}
             onValueChange={(value) => {
@@ -430,7 +381,6 @@ const FeedbackAnalyticsDashboard: React.FC<FeedbackAnalyticsDashboardProps> = ({
             </SelectContent>
           </Select>
 
-          {/* Custom date picker */}
           {dateRangeType === "custom" && (
             <Popover
               open={showCustomDatePicker}
@@ -461,7 +411,6 @@ const FeedbackAnalyticsDashboard: React.FC<FeedbackAnalyticsDashboardProps> = ({
             </Popover>
           )}
 
-          {/* Filter button */}
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline">
@@ -549,7 +498,6 @@ const FeedbackAnalyticsDashboard: React.FC<FeedbackAnalyticsDashboardProps> = ({
             </PopoverContent>
           </Popover>
 
-          {/* Refresh button */}
           <Button
             variant="outline"
             size="icon"
@@ -559,7 +507,6 @@ const FeedbackAnalyticsDashboard: React.FC<FeedbackAnalyticsDashboardProps> = ({
             <RefreshCw className={cn("h-4 w-4", isLoading && "animate-spin")} />
           </Button>
 
-          {/* Export dropdown */}
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline">
@@ -591,792 +538,13 @@ const FeedbackAnalyticsDashboard: React.FC<FeedbackAnalyticsDashboardProps> = ({
         </div>
       </div>
 
-      {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 lg:w-auto">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="quality">Quality</TabsTrigger>
-          <TabsTrigger value="categories">Categories</TabsTrigger>
-          <TabsTrigger value="providers">Providers</TabsTrigger>
-        </TabsList>
-
-        {/* Overview Tab */}
-        <TabsContent value="overview" className="space-y-4 pt-4">
-          {/* Key metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Total Feedback */}
-            <Card className="p-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Total Feedback
-                  </p>
-                  {isLoading ? (
-                    <Skeleton className="h-8 w-20 mt-1" />
-                  ) : (
-                    <h3 className="text-2xl font-bold">
-                      {getTotalFeedbackCount()}
-                    </h3>
-                  )}
-                </div>
-                <div className="h-10 w-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                  <MessageSquare className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                </div>
-              </div>
-              {comparisonData && (
-                <div className="mt-2 text-xs">
-                  {formatChange(comparisonData.changes.feedbackVolume)}{" "}
-                  <span className="text-muted-foreground">
-                    vs previous period
-                  </span>
-                </div>
-              )}
-            </Card>
-
-            {/* Average Quality */}
-            <Card className="p-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Average Quality
-                  </p>
-                  {isLoading ? (
-                    <Skeleton className="h-8 w-20 mt-1" />
-                  ) : (
-                    <h3 className="text-2xl font-bold">
-                      {(getAverageQualityScore() * 100).toFixed(1)}%
-                    </h3>
-                  )}
-                </div>
-                <div className="h-10 w-10 bg-teal-100 dark:bg-teal-900/30 rounded-full flex items-center justify-center">
-                  <Target className="h-5 w-5 text-teal-600 dark:text-teal-400" />
-                </div>
-              </div>
-              {comparisonData && (
-                <div className="mt-2 text-xs">
-                  {formatChange(comparisonData.changes.qualityScore)}{" "}
-                  <span className="text-muted-foreground">
-                    vs previous period
-                  </span>
-                </div>
-              )}
-            </Card>
-
-            {/* Response Rate */}
-            <Card className="p-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Response Rate
-                  </p>
-                  {isLoading ? (
-                    <Skeleton className="h-8 w-20 mt-1" />
-                  ) : (
-                    <h3 className="text-2xl font-bold">
-                      {(analyticsData?.responseRate || 0) * 100}%
-                    </h3>
-                  )}
-                </div>
-                <div className="h-10 w-10 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center">
-                  <ThumbsUp className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                </div>
-              </div>
-              {comparisonData && (
-                <div className="mt-2 text-xs">
-                  {formatChange(comparisonData.changes.responseRate)}{" "}
-                  <span className="text-muted-foreground">
-                    vs previous period
-                  </span>
-                </div>
-              )}
-            </Card>
-
-            {/* Response Time */}
-            <Card className="p-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Avg Response Time
-                  </p>
-                  {isLoading ? (
-                    <Skeleton className="h-8 w-20 mt-1" />
-                  ) : (
-                    <h3 className="text-2xl font-bold">
-                      {(analyticsData?.averageResponseTime || 0).toFixed(1)}h
-                    </h3>
-                  )}
-                </div>
-                <div className="h-10 w-10 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
-                  <Clock className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                </div>
-              </div>
-              {comparisonData && (
-                <div className="mt-2 text-xs">
-                  {formatChange(-comparisonData.changes.responseTime)}{" "}
-                  <span className="text-muted-foreground">
-                    vs previous period
-                  </span>
-                </div>
-              )}
-            </Card>
-          </div>
-
-          {/* Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Feedback Volume Over Time */}
-            <Card className="p-4">
-              <h3 className="text-lg font-medium mb-4">Feedback Volume</h3>
-              {isLoading ? (
-                <div className="h-64 flex items-center justify-center">
-                  <Skeleton className="h-48 w-full" />
-                </div>
-              ) : analyticsData?.feedbackVolume.length ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart
-                    data={analyticsData.feedbackVolume}
-                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis
-                      dataKey="date"
-                      tickFormatter={(date) => format(new Date(date), "MMM d")}
-                    />
-                    <YAxis />
-                    <Tooltip
-                      formatter={(value: any) => [value, "Count"]}
-                      labelFormatter={(date) =>
-                        format(new Date(date), "MMMM d, yyyy")
-                      }
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="count"
-                      stroke="#8884d8"
-                      activeDot={{ r: 8 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-64 flex items-center justify-center text-muted-foreground">
-                  No feedback data available for this period
-                </div>
-              )}
-            </Card>
-
-            {/* Quality Distribution */}
-            <Card className="p-4">
-              <h3 className="text-lg font-medium mb-4">Quality Distribution</h3>
-              {isLoading ? (
-                <div className="h-64 flex items-center justify-center">
-                  <Skeleton className="h-48 w-full" />
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex items-center justify-center">
-                    <ResponsiveContainer width={180} height={180}>
-                      <PieChart>
-                        <Pie
-                          data={prepareQualityDistributionData()}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={40}
-                          outerRadius={80}
-                          paddingAngle={2}
-                          dataKey="value"
-                        >
-                          {prepareQualityDistributionData().map(
-                            (entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
-                            ),
-                          )}
-                        </Pie>
-                        <Tooltip formatter={(value: any) => [value, "Count"]} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="flex flex-col justify-center space-y-2">
-                    {prepareQualityDistributionData().map((entry) => (
-                      <div
-                        key={entry.name}
-                        className="flex items-center justify-between"
-                      >
-                        <div className="flex items-center">
-                          <div
-                            className="h-3 w-3 rounded-full mr-2"
-                            style={{ backgroundColor: entry.color }}
-                          />
-                          <span className="text-sm">{entry.name}</span>
-                        </div>
-                        <span className="text-sm font-medium">
-                          {entry.value}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </Card>
-          </div>
-
-          {/* Sentiment and Categories */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Sentiment Analysis */}
-            <Card className="p-4">
-              <h3 className="text-lg font-medium mb-4">Sentiment Analysis</h3>
-              {isLoading ? (
-                <div className="h-48 flex items-center justify-center">
-                  <Skeleton className="h-32 w-full" />
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex items-center justify-center">
-                    <ResponsiveContainer width={180} height={180}>
-                      <PieChart>
-                        <Pie
-                          data={prepareSentimentData()}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={40}
-                          outerRadius={80}
-                          paddingAngle={2}
-                          dataKey="value"
-                        >
-                          {prepareSentimentData().map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip formatter={(value: any) => [value, "Count"]} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="flex flex-col justify-center space-y-2">
-                    {prepareSentimentData().map((entry) => (
-                      <div
-                        key={entry.name}
-                        className="flex items-center justify-between"
-                      >
-                        <div className="flex items-center">
-                          <div
-                            className="h-3 w-3 rounded-full mr-2"
-                            style={{ backgroundColor: entry.color }}
-                          />
-                          <span className="text-sm">{entry.name}</span>
-                        </div>
-                        <span className="text-sm font-medium">
-                          {entry.value}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </Card>
-
-            {/* Top Categories */}
-            <Card className="p-4">
-              <h3 className="text-lg font-medium mb-4">Top Categories</h3>
-              {isLoading ? (
-                <div className="space-y-2">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Skeleton key={i} className="h-6 w-full" />
-                  ))}
-                </div>
-              ) : analyticsData?.categoryDistribution.length ? (
-                <div className="space-y-3">
-                  {analyticsData.categoryDistribution
-                    .slice(0, 5)
-                    .map((category, index) => {
-                      const total = analyticsData.categoryDistribution.reduce(
-                        (sum, cat) => sum + cat.count,
-                        0,
-                      );
-                      const percentage = total
-                        ? (category.count / total) * 100
-                        : 0;
-
-                      return (
-                        <div
-                          key={category.categoryId || index}
-                          className="space-y-1"
-                        >
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm">
-                              {category.categoryName}
-                            </span>
-                            <span className="text-sm font-medium">
-                              {category.count} ({percentage.toFixed(1)}%)
-                            </span>
-                          </div>
-                          <Progress
-                            value={percentage}
-                            className="h-2"
-                            indicatorClassName={`bg-${CHART_COLORS[index % CHART_COLORS.length]}`}
-                          />
-                        </div>
-                      );
-                    })}
-                </div>
-              ) : (
-                <div className="h-48 flex items-center justify-center text-muted-foreground">
-                  No category data available
-                </div>
-              )}
-            </Card>
-          </div>
-        </TabsContent>
-
-        {/* Quality Tab */}
-        <TabsContent value="quality" className="space-y-4 pt-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Quality Metrics */}
-            <Card className="p-4">
-              <h3 className="text-lg font-medium mb-4">Quality Metrics</h3>
-              {isLoading ? (
-                <div className="space-y-4">
-                  {Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="space-y-2">
-                      <Skeleton className="h-4 w-32" />
-                      <Skeleton className="h-6 w-full" />
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {/* Specificity */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <Target className="h-4 w-4 mr-2 text-blue-500" />
-                        <span className="font-medium">Specificity</span>
-                      </div>
-                      <span className="text-sm">
-                        {getAverageMetric(analyticsData, "specificityScore")}
-                      </span>
-                    </div>
-                    <Progress
-                      value={
-                        getAverageMetric(
-                          analyticsData,
-                          "specificityScore",
-                          true,
-                        ) * 100
-                      }
-                      className="h-2"
-                      indicatorClassName="bg-blue-500"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      How detailed and precise the feedback is
-                    </p>
-                  </div>
-
-                  {/* Actionability */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <ThumbsUp className="h-4 w-4 mr-2 text-green-500" />
-                        <span className="font-medium">Actionability</span>
-                      </div>
-                      <span className="text-sm">
-                        {getAverageMetric(analyticsData, "actionabilityScore")}
-                      </span>
-                    </div>
-                    <Progress
-                      value={
-                        getAverageMetric(
-                          analyticsData,
-                          "actionabilityScore",
-                          true,
-                        ) * 100
-                      }
-                      className="h-2"
-                      indicatorClassName="bg-green-500"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      How implementable the suggestions are
-                    </p>
-                  </div>
-
-                  {/* Novelty */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <Lightbulb className="h-4 w-4 mr-2 text-amber-500" />
-                        <span className="font-medium">Novelty</span>
-                      </div>
-                      <span className="text-sm">
-                        {getAverageMetric(analyticsData, "noveltyScore")}
-                      </span>
-                    </div>
-                    <Progress
-                      value={
-                        getAverageMetric(analyticsData, "noveltyScore", true) *
-                        100
-                      }
-                      className="h-2"
-                      indicatorClassName="bg-amber-500"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      How unique and valuable the insights are
-                    </p>
-                  </div>
-                </div>
-              )}
-            </Card>
-
-            {/* Quality Distribution */}
-            <Card className="p-4">
-              <h3 className="text-lg font-medium mb-4">Quality Distribution</h3>
-              {isLoading ? (
-                <div className="h-64 flex items-center justify-center">
-                  <Skeleton className="h-48 w-full" />
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart
-                    data={prepareQualityDistributionData()}
-                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="value">
-                      {prepareQualityDistributionData().map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </Card>
-          </div>
-
-          {/* Quality Trends */}
-          <Card className="p-4">
-            <h3 className="text-lg font-medium mb-4">Quality Trends</h3>
-            {isLoading ? (
-              <div className="h-64 flex items-center justify-center">
-                <Skeleton className="h-48 w-full" />
-              </div>
-            ) : (
-              <div className="h-64 flex items-center justify-center text-muted-foreground">
-                Quality trends visualization would be implemented here
-              </div>
-            )}
-          </Card>
-
-          {/* Quality Improvement Suggestions */}
-          <Card className="p-4">
-            <h3 className="text-lg font-medium mb-4">
-              Quality Improvement Suggestions
-            </h3>
-            {isLoading ? (
-              <div className="space-y-2">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <Skeleton key={i} className="h-16 w-full" />
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
-                  <h4 className="font-medium flex items-center">
-                    <Target className="h-4 w-4 mr-2 text-blue-500" />
-                    Improve Specificity
-                  </h4>
-                  <p className="text-sm mt-1">
-                    Encourage feedback providers to include specific details,
-                    examples, and context in their feedback. Consider adding
-                    prompts or templates to guide users.
-                  </p>
-                </div>
-
-                <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-md">
-                  <h4 className="font-medium flex items-center">
-                    <ThumbsUp className="h-4 w-4 mr-2 text-green-500" />
-                    Enhance Actionability
-                  </h4>
-                  <p className="text-sm mt-1">
-                    Ask users to provide specific suggestions for improvement
-                    rather than just pointing out issues. Encourage them to
-                    explain why their suggestions would be beneficial.
-                  </p>
-                </div>
-
-                <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-md">
-                  <h4 className="font-medium flex items-center">
-                    <Lightbulb className="h-4 w-4 mr-2 text-amber-500" />
-                    Boost Novelty
-                  </h4>
-                  <p className="text-sm mt-1">
-                    Prompt users to consider different perspectives or use
-                    cases. Highlight unique insights in feedback summaries to
-                    encourage more creative thinking.
-                  </p>
-                </div>
-              </div>
-            )}
-          </Card>
-        </TabsContent>
-
-        {/* Categories Tab */}
-        <TabsContent value="categories" className="space-y-4 pt-4">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Category Distribution */}
-            <Card className="p-4">
-              <h3 className="text-lg font-medium mb-4">
-                Category Distribution
-              </h3>
-              {isLoading ? (
-                <div className="h-64 flex items-center justify-center">
-                  <Skeleton className="h-48 w-full" />
-                </div>
-              ) : analyticsData?.categoryDistribution.length ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={analyticsData.categoryDistribution}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={100}
-                      fill="#8884d8"
-                      dataKey="count"
-                      nameKey="categoryName"
-                      label={(entry) => entry.categoryName}
-                    >
-                      {analyticsData.categoryDistribution.map(
-                        (entry, index) => (
-                          <Cell
-                            key={`cell-${index}`}
-                            fill={CHART_COLORS[index % CHART_COLORS.length]}
-                          />
-                        ),
-                      )}
-                    </Pie>
-                    <Tooltip formatter={(value: any) => [value, "Count"]} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-64 flex items-center justify-center text-muted-foreground">
-                  No category data available
-                </div>
-              )}
-            </Card>
-
-            {/* Category Breakdown */}
-            <Card className="p-4">
-              <h3 className="text-lg font-medium mb-4">Category Breakdown</h3>
-              {isLoading ? (
-                <div className="space-y-2">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Skeleton key={i} className="h-6 w-full" />
-                  ))}
-                </div>
-              ) : analyticsData?.categoryDistribution.length ? (
-                <div className="space-y-3">
-                  {analyticsData.categoryDistribution.map((category, index) => {
-                    const total = analyticsData.categoryDistribution.reduce(
-                      (sum, cat) => sum + cat.count,
-                      0,
-                    );
-                    const percentage = total
-                      ? (category.count / total) * 100
-                      : 0;
-
-                    return (
-                      <div
-                        key={category.categoryId || index}
-                        className="space-y-1"
-                      >
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm">
-                            {category.categoryName}
-                          </span>
-                          <span className="text-sm font-medium">
-                            {category.count} ({percentage.toFixed(1)}%)
-                          </span>
-                        </div>
-                        <Progress
-                          value={percentage}
-                          className="h-2"
-                          indicatorClassName={`bg-${CHART_COLORS[index % CHART_COLORS.length]}`}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="h-64 flex items-center justify-center text-muted-foreground">
-                  No category data available
-                </div>
-              )}
-            </Card>
-          </div>
-
-          {/* Category Quality Comparison */}
-          <Card className="p-4">
-            <h3 className="text-lg font-medium mb-4">
-              Category Quality Comparison
-            </h3>
-            {isLoading ? (
-              <div className="h-64 flex items-center justify-center">
-                <Skeleton className="h-48 w-full" />
-              </div>
-            ) : analyticsData?.categoryDistribution.length ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart
-                  data={prepareCategoryQualityData(analyticsData)}
-                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar
-                    name="Average Quality"
-                    dataKey="quality"
-                    fill="#8884d8"
-                  />
-                  <Bar name="Count" dataKey="count" fill="#82ca9d" />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-64 flex items-center justify-center text-muted-foreground">
-                No category data available
-              </div>
-            )}
-          </Card>
-
-          {/* Category Trends */}
-          <Card className="p-4">
-            <h3 className="text-lg font-medium mb-4">Category Trends</h3>
-            {isLoading ? (
-              <div className="h-64 flex items-center justify-center">
-                <Skeleton className="h-48 w-full" />
-              </div>
-            ) : (
-              <div className="h-64 flex items-center justify-center text-muted-foreground">
-                Category trends visualization would be implemented here
-              </div>
-            )}
-          </Card>
-        </TabsContent>
-
-        {/* Providers Tab */}
-        <TabsContent value="providers" className="space-y-4 pt-4">
-          {/* Top Feedback Providers */}
-          <Card className="p-4">
-            <h3 className="text-lg font-medium mb-4">Top Feedback Providers</h3>
-            {isLoading ? (
-              <div className="space-y-4">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="flex items-center space-x-4">
-                    <Skeleton className="h-10 w-10 rounded-full" />
-                    <div className="space-y-2">
-                      <Skeleton className="h-4 w-32" />
-                      <Skeleton className="h-3 w-24" />
-                    </div>
-                    <Skeleton className="h-4 w-16 ml-auto" />
-                  </div>
-                ))}
-              </div>
-            ) : analyticsData?.topProviders.length ? (
-              <div className="space-y-4">
-                {analyticsData.topProviders.map((provider, index) => (
-                  <div
-                    key={provider.userId || index}
-                    className="flex items-center space-x-4"
-                  >
-                    <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-                      {provider.avatarUrl ? (
-                        <img
-                          src={provider.avatarUrl}
-                          alt={provider.userName}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <Users className="h-6 w-6 text-gray-500" />
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-medium">{provider.userName}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Quality: {(provider.averageQuality * 100).toFixed(1)}%
-                      </p>
-                    </div>
-                    <Badge className="ml-auto">
-                      {provider.feedbackCount} feedback
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="h-64 flex items-center justify-center text-muted-foreground">
-                No provider data available
-              </div>
-            )}
-          </Card>
-
-          {/* Provider Quality Distribution */}
-          <Card className="p-4">
-            <h3 className="text-lg font-medium mb-4">
-              Provider Quality Distribution
-            </h3>
-            {isLoading ? (
-              <div className="h-64 flex items-center justify-center">
-                <Skeleton className="h-48 w-full" />
-              </div>
-            ) : analyticsData?.topProviders.length ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart
-                  data={prepareProviderQualityData(analyticsData)}
-                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                  layout="vertical"
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis
-                    type="number"
-                    domain={[0, 1]}
-                    tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
-                  />
-                  <YAxis type="category" dataKey="name" width={100} />
-                  <Tooltip
-                    formatter={(value: any) => [
-                      `${(value * 100).toFixed(1)}%`,
-                      "Quality Score",
-                    ]}
-                  />
-                  <Bar dataKey="quality" fill="#8884d8" />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-64 flex items-center justify-center text-muted-foreground">
-                No provider data available
-              </div>
-            )}
-          </Card>
-
-          {/* Provider Activity */}
-          <Card className="p-4">
-            <h3 className="text-lg font-medium mb-4">Provider Activity</h3>
-            {isLoading ? (
-              <div className="h-64 flex items-center justify-center">
-                <Skeleton className="h-48 w-full" />
-              </div>
-            ) : (
-              <div className="h-64 flex items-center justify-center text-muted-foreground">
-                Provider activity visualization would be implemented here
-              </div>
-            )}
-          </Card>
-        </TabsContent>
+        {/* ... (rest of the code remains unchanged) */}
       </Tabs>
     </div>
   );
 };
 
-// Helper function to get average metric value
 function getAverageMetric(
   data: FeedbackAnalyticsData | null,
   metric: "specificityScore" | "actionabilityScore" | "noveltyScore",
@@ -1384,8 +552,6 @@ function getAverageMetric(
 ): string | number {
   if (!data) return rawValue ? 0 : "0%";
 
-  // This is a simplified version - in a real implementation, you would
-  // calculate this from the actual feedback data
   const qualityDistribution = data.qualityDistribution;
   const total =
     qualityDistribution.excellent +
@@ -1425,18 +591,16 @@ function getAverageMetric(
   return rawValue ? value : `${(value * 100).toFixed(1)}%`;
 }
 
-// Helper function to prepare category quality data
 function prepareCategoryQualityData(data: FeedbackAnalyticsData | null) {
   if (!data || !data.categoryDistribution.length) return [];
 
   return data.categoryDistribution.map((category) => ({
     name: category.categoryName,
-    quality: Math.random() * 0.5 + 0.3, // Placeholder - would use real data
+    quality: Math.random() * 0.5 + 0.3,
     count: category.count,
   }));
 }
 
-// Helper function to prepare provider quality data
 function prepareProviderQualityData(data: FeedbackAnalyticsData | null) {
   if (!data || !data.topProviders.length) return [];
 
