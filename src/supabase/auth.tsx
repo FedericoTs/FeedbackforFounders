@@ -25,8 +25,12 @@ import {
   recordFailedAttempt,
   resetRateLimit,
 } from "../lib/rateLimiter";
+import {
+  initSessionTracking,
+  extendSession as extendSessionUtil,
+  updateSessionConfig,
+} from "../lib/sessionManager";
 
-// Session information type definition
 type SessionInfoType = {
   valid: boolean;
   expiresAt: Date | null;
@@ -64,6 +68,16 @@ type AuthContextType = {
   getSessionTimeRemaining: () => string;
   revokeSession: (sessionId: string) => Promise<boolean>;
   getAllSessions: () => Promise<any[] | null>;
+  sessionTimeoutWarning: {
+    visible: boolean;
+    threshold: number;
+  };
+  extendSession: () => Promise<boolean>;
+  configureSessionTimeout: (options: {
+    warningThreshold?: number;
+    idleTimeout?: number;
+    absoluteTimeout?: number;
+  }) => void;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -85,9 +99,12 @@ export default function AuthProvider({
     timeRemaining: 0,
     issuedAt: null,
   });
+  const [sessionTimeoutWarning, setSessionTimeoutWarning] = useState({
+    visible: false,
+    threshold: 0,
+  });
 
   useEffect(() => {
-    // Check active session
     const getSession = async () => {
       try {
         const {
@@ -106,7 +123,6 @@ export default function AuthProvider({
 
     getSession();
 
-    // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
@@ -119,7 +135,6 @@ export default function AuthProvider({
     };
   }, []);
 
-  // Enhanced sign in with error handling and options
   const signIn = async (
     email: string,
     password: string,
@@ -143,7 +158,6 @@ export default function AuthProvider({
     }
   };
 
-  // Enhanced sign up with additional user metadata
   const signUp = async (email: string, password: string, fullName?: string) => {
     try {
       setAuthError(null);
@@ -165,7 +179,6 @@ export default function AuthProvider({
     }
   };
 
-  // Enhanced sign out with error handling
   const signOut = async () => {
     try {
       setAuthError(null);
@@ -179,7 +192,6 @@ export default function AuthProvider({
     }
   };
 
-  // Sign out from all devices
   const signOutAllDevices = async () => {
     try {
       setAuthError(null);
@@ -193,7 +205,6 @@ export default function AuthProvider({
     }
   };
 
-  // Password reset request
   const resetPassword = async (email: string) => {
     try {
       setAuthError(null);
@@ -209,7 +220,6 @@ export default function AuthProvider({
     }
   };
 
-  // Update password
   const updatePassword = async (password: string) => {
     try {
       setAuthError(null);
@@ -225,7 +235,6 @@ export default function AuthProvider({
     }
   };
 
-  // Update user profile
   const updateProfile = async (profile: {
     fullName?: string;
     avatarUrl?: string;
@@ -247,43 +256,32 @@ export default function AuthProvider({
     }
   };
 
-  // Get user role from metadata or database
   const getUserRole = () => {
     if (!user) return null;
-    // Extract role from user metadata
     const metadataRole = user.user_metadata?.role;
     if (metadataRole) return metadataRole;
-
-    // If no role in metadata, use default role
     return ROLES.USER;
   };
 
-  // Check if user has specific permission
   const hasPermission = (permission: string) => {
     const role = getUserRole();
     if (!role) return false;
-
     return checkPermission(role, permission);
   };
 
-  // Refresh the session
   const refreshSession = async (): Promise<boolean> => {
     try {
       const session = await refreshToken();
       if (session) {
-        // Update session info
         const info = await getSessionInfo();
         setSessionInfo(info);
         setSessionValid(info.valid);
-
-        // Store the refreshed tokens securely
         if (session.access_token) {
           await storeToken("auth_access_token", session.access_token);
         }
         if (session.refresh_token) {
           await storeToken("auth_refresh_token", session.refresh_token);
         }
-
         return true;
       }
       return false;
@@ -293,12 +291,10 @@ export default function AuthProvider({
     }
   };
 
-  // Get formatted session time remaining
   const getSessionTimeRemaining = (): string => {
     return formatTimeDuration(sessionInfo.timeRemaining);
   };
 
-  // Update session info periodically and handle auto-refresh with enhanced logic
   useEffect(() => {
     let refreshCancelFn: (() => void) | null = null;
 
@@ -307,23 +303,15 @@ export default function AuthProvider({
         const info = await getSessionInfo();
         setSessionInfo(info);
         setSessionValid(info.valid);
-
-        // If session is valid, set up automatic refresh
         if (info.valid) {
-          // Calculate seconds until expiration
           const secondsUntilExpiration = Math.floor(info.timeRemaining / 1000);
-
-          // If we already have a refresh timer, cancel it to avoid duplicates
           if (refreshCancelFn) {
             refreshCancelFn();
             refreshCancelFn = null;
           }
-
-          // Set up a new refresh timer with dynamic buffer calculation
           if (secondsUntilExpiration > 0) {
             refreshCancelFn = setupTokenRefresh(secondsUntilExpiration);
           } else {
-            // If token is already expired or about to expire, refresh immediately
             console.log(
               "Session expired or about to expire, refreshing immediately",
             );
@@ -333,38 +321,29 @@ export default function AuthProvider({
       }
     };
 
-    // Update session info immediately
     updateSessionInfo();
 
-    // Set up interval to update session info - more frequently when session is close to expiry
     const getCheckInterval = () => {
-      // If less than 5 minutes remaining, check every 15 seconds
       if (sessionInfo.timeRemaining < 5 * 60 * 1000) {
         return 15000;
       }
-      // If less than 10 minutes remaining, check every 30 seconds
       if (sessionInfo.timeRemaining < 10 * 60 * 1000) {
         return 30000;
       }
-      // If less than 30 minutes remaining, check every minute
       if (sessionInfo.timeRemaining < 30 * 60 * 1000) {
         return 60000;
       }
-      // Otherwise check every 5 minutes
       return 5 * 60 * 1000;
     };
 
     const interval = setInterval(updateSessionInfo, getCheckInterval());
 
-    // Enhanced visibility change handling
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible" && user) {
-        // When tab becomes visible again, update session info immediately
         updateSessionInfo();
       }
     };
 
-    // Enhanced online/offline handling
     const handleOnline = () => {
       if (user) {
         console.log("Device came online, checking session status");
@@ -378,13 +357,11 @@ export default function AuthProvider({
       );
     };
 
-    // Add event listeners
     document.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
 
     return () => {
-      // Clean up all timers and event listeners
       clearInterval(interval);
       if (refreshCancelFn) refreshCancelFn();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
@@ -393,7 +370,6 @@ export default function AuthProvider({
     };
   }, [user, sessionInfo.timeRemaining]);
 
-  // Revoke a specific session
   const revokeSession = async (sessionId: string): Promise<boolean> => {
     try {
       return await revokeSessionToken(sessionId);
@@ -403,7 +379,6 @@ export default function AuthProvider({
     }
   };
 
-  // Get all active sessions
   const getAllSessions = async (): Promise<any[] | null> => {
     try {
       return await getAllSessionsToken();
@@ -413,12 +388,46 @@ export default function AuthProvider({
     }
   };
 
+  const extendSessionHandler = async (): Promise<boolean> => {
+    try {
+      const success = await extendSessionUtil();
+      if (success) {
+        const info = await getSessionInfo();
+        setSessionInfo(info);
+        setSessionValid(info.valid);
+        setSessionTimeoutWarning((prev) => ({
+          ...prev,
+          visible: false,
+        }));
+      }
+      return success;
+    } catch (error) {
+      console.error("Error extending session:", error);
+      return false;
+    }
+  };
+
+  const configureSessionTimeout = (options: {
+    warningThreshold?: number;
+    idleTimeout?: number;
+    absoluteTimeout?: number;
+  }): void => {
+    updateSessionConfig(options);
+    if (options.warningThreshold) {
+      setSessionTimeoutWarning((prev) => ({
+        ...prev,
+        threshold: options.warningThreshold!,
+      }));
+    }
+  };
+
   const value = {
     user,
     loading,
     authError,
     sessionValid,
     sessionInfo,
+    sessionTimeoutWarning,
     signIn,
     signUp,
     signOut,
@@ -431,13 +440,14 @@ export default function AuthProvider({
     getUserRole,
     hasPermission,
     refreshSession,
+    extendSession: extendSessionHandler,
     getSessionTimeRemaining,
+    configureSessionTimeout,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// Export the hook as a named export
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
@@ -446,7 +456,6 @@ export function useAuth() {
   return context;
 }
 
-// Helper function to check if a user is authenticated
 export function useIsAuthenticated() {
   const { user, loading } = useAuth();
   return { isAuthenticated: !!user, loading };
