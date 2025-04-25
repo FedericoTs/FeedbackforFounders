@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { AuthProvider } from "@/supabase/auth";
+import AuthProvider from "@/supabase/auth";
 import { User } from "@supabase/supabase-js";
 import { ROLES } from "@/lib/roles";
 import { Badge } from "@/components/ui/badge";

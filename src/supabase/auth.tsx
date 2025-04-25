@@ -2,7 +2,12 @@ import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { supabase } from "./supabase";
 import type { User, Session } from "@supabase/supabase-js";
 import { useLocation } from "react-router-dom";
-import { formatAuthError } from "../lib/authUtils";
+import {
+  formatAuthError,
+  withAuthRetry,
+  trackOperationFailure,
+  formatCooldownTime,
+} from "../lib/authUtils";
 import { hasPermission as checkPermission, ROLES } from "../lib/roles";
 import {
   setupTokenRefresh,
@@ -65,7 +70,11 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export default function AuthProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);

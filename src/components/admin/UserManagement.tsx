@@ -152,7 +152,10 @@ export default function UserManagement() {
 
         {loading ? (
           <div className="flex justify-center items-center h-64">
-            <Spinner className="h-8 w-8 text-teal-500" />
+            <div className="flex items-center">
+              <Spinner className="h-6 w-6 text-teal-500 mr-2" />
+              <span className="text-slate-600">Loading users...</span>
+            </div>
           </div>
         ) : (
           <div className="border rounded-lg overflow-hidden">

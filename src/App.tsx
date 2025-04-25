@@ -26,12 +26,13 @@ import Home from "./components/pages/home.tsx";
 import FeedbackAnalytics from "./components/pages/FeedbackAnalytics";
 import Notifications from "./components/pages/Notifications";
 import AdminDashboard from "./components/pages/AdminDashboard";
-import { AuthProvider, useAuth } from "./supabase/auth";
+import AuthProvider, { useAuth } from "./supabase/auth";
 import { Toaster } from "./components/ui/toaster";
 import { ThemeProvider } from "./components/ui/theme-provider";
 import DashboardLayout from "./components/dashboard/layout/DashboardLayout";
 import { AwardToastProvider } from "./hooks/useAwardToast";
 import { AwardToastListener } from "./components/AwardToastListener";
+import { AuthLoading } from "./components/ui/auth-loading";
 import { Spinner } from "./components/ui/spinner";
 
 interface PrivateRouteProps {
