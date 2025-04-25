@@ -7,6 +7,8 @@ import {
   ProjectsWidget,
   ActivityWidget,
   RewardsWidget,
+  LeaderboardWidget,
+  AchievementsWidget,
 } from "./widgets";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, Settings } from "lucide-react";
@@ -57,13 +59,25 @@ const defaultWidgets: WidgetConfig[] = [
     minH: 1,
   },
   { id: "rewards", type: "rewards", x: 2, y: 2, w: 1, h: 1, minW: 1, minH: 1 },
+  {
+    id: "leaderboard",
+    type: "leaderboard",
+    x: 0,
+    y: 3,
+    w: 1,
+    h: 2,
+    minW: 1,
+    minH: 2,
+  },
 ];
 
 const widgetTypes = [
   { id: "stats", label: "Statistics Overview" },
   { id: "projects", label: "Recent Projects" },
   { id: "activity", label: "Activity Feed" },
-  { id: "rewards", label: "Rewards & Achievements" },
+  { id: "rewards", label: "Rewards & Points" },
+  { id: "achievements", label: "Achievements" },
+  { id: "leaderboard", label: "Leaderboard" },
 ];
 
 const DashboardWidgetGrid = ({
@@ -225,6 +239,22 @@ const DashboardWidgetGrid = ({
             key={id}
             {...props}
             isRemovable={isEditing}
+            onRemove={() => removeWidget(id)}
+          />
+        );
+      case "achievements":
+        return (
+          <AchievementsWidget
+            id={id}
+            {...props}
+            onRemove={() => removeWidget(id)}
+          />
+        );
+      case "leaderboard":
+        return (
+          <LeaderboardWidget
+            id={id}
+            {...props}
             onRemove={() => removeWidget(id)}
           />
         );

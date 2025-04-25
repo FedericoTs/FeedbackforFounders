@@ -61,7 +61,7 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
       setLeaderboard(data);
 
       if (showUserRank && user) {
-        const rankData = await pointsService.getUserRank(user.id);
+        const rankData = await pointsService.getUserRank(user.id, timeframe);
         setUserRank(rankData);
       }
     } catch (error) {

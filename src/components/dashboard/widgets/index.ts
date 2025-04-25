@@ -5,3 +5,5 @@ export { default as ProjectsWidget } from "./ProjectsWidget";
 export { default as RewardsWidget } from "./RewardsWidget";
 export { default as StatsWidget } from "./StatsWidget";
 export { default as DashboardWidgetGrid } from "../DashboardWidgetGrid";
+export { default as AchievementsWidget } from "./AchievementsWidget";
+export { default as LeaderboardWidget } from "./LeaderboardWidget";
