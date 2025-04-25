@@ -12,6 +12,8 @@ import {
   refreshToken,
   getSessionInfo,
   formatTimeDuration,
+  revokeSession as revokeSessionToken,
+  getAllSessions as getAllSessionsToken,
 } from "../lib/tokenManager";
 import {
   isRateLimited,
@@ -57,6 +59,8 @@ type AuthContextType = {
   hasPermission: (permission: string) => boolean;
   refreshSession: () => Promise<boolean>;
   getSessionTimeRemaining: () => string;
+  revokeSession: (sessionId: string) => Promise<boolean>;
+  getAllSessions: () => Promise<any[] | null>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -264,6 +268,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const info = await getSessionInfo();
         setSessionInfo(info);
         setSessionValid(info.valid);
+
+        // Store the refreshed tokens securely
+        if (session.access_token) {
+          await storeToken("auth_access_token", session.access_token);
+        }
+        if (session.refresh_token) {
+          await storeToken("auth_refresh_token", session.refresh_token);
+        }
+
         return true;
       }
       return false;
@@ -278,18 +291,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return formatTimeDuration(sessionInfo.timeRemaining);
   };
 
-  // Update session info periodically and handle auto-refresh
+  // Update session info periodically and handle auto-refresh with enhanced logic
   useEffect(() => {
+    let refreshCancelFn: (() => void) | null = null;
+
     const updateSessionInfo = async () => {
       if (user) {
         const info = await getSessionInfo();
         setSessionInfo(info);
         setSessionValid(info.valid);
 
-        // If session is about to expire (less than 5 minutes remaining), refresh it
-        if (info.valid && info.timeRemaining < 5 * 60 * 1000) {
-          console.log("Session about to expire, refreshing automatically");
-          await refreshSession();
+        // If session is valid, set up automatic refresh
+        if (info.valid) {
+          // Calculate seconds until expiration
+          const secondsUntilExpiration = Math.floor(info.timeRemaining / 1000);
+
+          // If we already have a refresh timer, cancel it to avoid duplicates
+          if (refreshCancelFn) {
+            refreshCancelFn();
+            refreshCancelFn = null;
+          }
+
+          // Set up a new refresh timer with dynamic buffer calculation
+          if (secondsUntilExpiration > 0) {
+            refreshCancelFn = setupTokenRefresh(secondsUntilExpiration);
+          } else {
+            // If token is already expired or about to expire, refresh immediately
+            console.log(
+              "Session expired or about to expire, refreshing immediately",
+            );
+            await refreshSession();
+          }
         }
       }
     };
@@ -299,6 +331,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Set up interval to update session info - more frequently when session is close to expiry
     const getCheckInterval = () => {
+      // If less than 5 minutes remaining, check every 15 seconds
+      if (sessionInfo.timeRemaining < 5 * 60 * 1000) {
+        return 15000;
+      }
       // If less than 10 minutes remaining, check every 30 seconds
       if (sessionInfo.timeRemaining < 10 * 60 * 1000) {
         return 30000;
@@ -313,20 +349,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const interval = setInterval(updateSessionInfo, getCheckInterval());
 
-    // Set up a listener for visibility changes to refresh when tab becomes visible again
+    // Enhanced visibility change handling
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible" && user) {
+        // When tab becomes visible again, update session info immediately
         updateSessionInfo();
       }
     };
 
+    // Enhanced online/offline handling
+    const handleOnline = () => {
+      if (user) {
+        console.log("Device came online, checking session status");
+        updateSessionInfo();
+      }
+    };
+
+    const handleOffline = () => {
+      console.log(
+        "Device went offline, session refresh will resume when online",
+      );
+    };
+
+    // Add event listeners
     document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
 
     return () => {
+      // Clean up all timers and event listeners
       clearInterval(interval);
+      if (refreshCancelFn) refreshCancelFn();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
     };
   }, [user, sessionInfo.timeRemaining]);
+
+  // Revoke a specific session
+  const revokeSession = async (sessionId: string): Promise<boolean> => {
+    try {
+      return await revokeSessionToken(sessionId);
+    } catch (error) {
+      console.error("Error revoking session:", error);
+      return false;
+    }
+  };
+
+  // Get all active sessions
+  const getAllSessions = async (): Promise<any[] | null> => {
+    try {
+      return await getAllSessionsToken();
+    } catch (error) {
+      console.error("Error getting all sessions:", error);
+      return null;
+    }
+  };
 
   const value = {
     user,
@@ -338,6 +416,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signUp,
     signOut,
     signOutAllDevices,
+    revokeSession,
+    getAllSessions,
     resetPassword,
     updatePassword,
     updateProfile,
@@ -350,17 +430,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// Separate the hook implementation from its export to make it compatible with Fast Refresh
-function useAuthHook() {
+// Create a separate context hook for better Fast Refresh compatibility
+const useAuthContext = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
-}
+};
 
 // Export the hook as a named export
-export const useAuth = useAuthHook;
+export const useAuth = useAuthContext;
 
 // Helper function to check if a user is authenticated
 export function useIsAuthenticated() {
