@@ -7,6 +7,8 @@ interface AwardEventDetail {
   description: string;
   variant?: "default" | "achievement" | "streak" | "level" | "feedback";
   metadata?: any;
+  priority?: number;
+  sound?: boolean;
 }
 
 export function AwardToastListener() {
@@ -22,13 +24,58 @@ export function AwardToastListener() {
           description,
           variant = "default",
           metadata,
+          priority,
+          sound,
         } = event.detail;
+
+        // Determine priority based on variant if not explicitly set
+        let calculatedPriority = priority;
+        if (calculatedPriority === undefined) {
+          switch (variant) {
+            case "achievement":
+              calculatedPriority = 30;
+              break;
+            case "level":
+              calculatedPriority = 20;
+              break;
+            case "streak":
+              calculatedPriority = 15;
+              break;
+            case "feedback":
+              calculatedPriority = 10;
+              break;
+            default:
+              calculatedPriority = 0;
+          }
+
+          // Adjust priority based on points
+          if (points >= 100) calculatedPriority += 10;
+          else if (points >= 50) calculatedPriority += 5;
+          else if (points >= 25) calculatedPriority += 2;
+        }
+
+        // Enrich metadata with additional context if needed
+        const enrichedMetadata = { ...metadata };
+
+        // For achievements, add context about what was achieved
+        if (variant === "achievement" && !enrichedMetadata.context) {
+          enrichedMetadata.context =
+            "Achievement unlocked! Keep up the great work.";
+        }
+
+        // For level ups, add context about new features or benefits
+        if (variant === "level" && !enrichedMetadata.context) {
+          enrichedMetadata.context = `You've reached level ${metadata?.level || "up"}! New features unlocked.`;
+        }
+
         showAwardToast({
           points,
           title,
           description,
           variant,
-          metadata,
+          metadata: enrichedMetadata,
+          priority: calculatedPriority,
+          sound,
         });
       } catch (error) {
         console.error("Error showing award toast:", error);

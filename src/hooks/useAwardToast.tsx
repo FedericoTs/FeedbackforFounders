@@ -4,6 +4,7 @@ import React, {
   createContext,
   useContext,
   useRef,
+  useEffect,
 } from "react";
 import { AwardToast } from "@/components/ui/award-toast";
 
@@ -19,15 +20,32 @@ interface AwardToastOptions {
   description: string;
   points: number;
   variant?: AwardToastVariant;
+  metadata?: Record<string, any>;
+  priority?: number; // Higher number = higher priority
+  sound?: boolean; // Whether to play sound
 }
 
 interface AwardToastContextValue {
   showAwardToast: (options: AwardToastOptions) => void;
+  clearToasts: () => void;
+  toastHistory: AwardToastOptions[];
 }
 
 const AwardToastContext = createContext<AwardToastContextValue | undefined>(
   undefined,
 );
+
+// Maximum number of toasts to keep in history
+const MAX_HISTORY_SIZE = 50;
+
+// Sound effects for different reward types
+const SOUND_EFFECTS = {
+  default: "/sounds/reward-default.mp3",
+  achievement: "/sounds/reward-achievement.mp3",
+  streak: "/sounds/reward-streak.mp3",
+  level: "/sounds/reward-level.mp3",
+  feedback: "/sounds/reward-feedback.mp3",
+};
 
 export const AwardToastProvider = ({
   children,
@@ -40,10 +58,61 @@ export const AwardToastProvider = ({
     description: "",
     points: 0,
   });
+  const [toastHistory, setToastHistory] = useState<AwardToastOptions[]>([]);
+  const [soundEnabled, setSoundEnabled] = useState(true); // Default to enabled
 
   // Use a queue to handle multiple toasts
   const toastQueue = useRef<AwardToastOptions[]>([]);
   const isProcessing = useRef(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Initialize audio element
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      audioRef.current = new Audio();
+
+      // Load user preference for sound from localStorage if available
+      const storedSoundPreference = localStorage.getItem("rewardSoundEnabled");
+      if (storedSoundPreference !== null) {
+        setSoundEnabled(storedSoundPreference === "true");
+      }
+    }
+
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
+  // Play sound effect based on variant
+  const playSound = useCallback(
+    (variant: AwardToastVariant = "default") => {
+      if (!soundEnabled || !audioRef.current) return;
+
+      try {
+        const soundPath = SOUND_EFFECTS[variant] || SOUND_EFFECTS.default;
+        audioRef.current.src = soundPath;
+        audioRef.current.volume = 0.5; // Set volume to 50%
+        audioRef.current.play().catch((err) => {
+          console.error("Error playing sound:", err);
+        });
+      } catch (error) {
+        console.error("Error setting up sound:", error);
+      }
+    },
+    [soundEnabled],
+  );
+
+  // Toggle sound setting
+  const toggleSound = useCallback(() => {
+    setSoundEnabled((prev) => {
+      const newValue = !prev;
+      localStorage.setItem("rewardSoundEnabled", String(newValue));
+      return newValue;
+    });
+  }, []);
 
   const processNextToast = useCallback(() => {
     if (toastQueue.current.length === 0) {
@@ -52,19 +121,43 @@ export const AwardToastProvider = ({
     }
 
     isProcessing.current = true;
+
+    // Sort queue by priority if needed
+    if (toastQueue.current.length > 1) {
+      toastQueue.current.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+    }
+
     const nextToast = toastQueue.current.shift();
     if (nextToast) {
       setToastData(nextToast);
       setOpen(true);
+
+      // Play sound if enabled
+      if (nextToast.sound !== false) {
+        // Play sound unless explicitly disabled
+        playSound(nextToast.variant);
+      }
+
+      // Add to history
+      setToastHistory((prev) => {
+        const newHistory = [nextToast, ...prev].slice(0, MAX_HISTORY_SIZE);
+        return newHistory;
+      });
     }
-  }, []);
+  }, [playSound]);
 
   const showAwardToast = useCallback(
     (options: AwardToastOptions) => {
       console.log("showAwardToast called with options:", options);
 
-      // Add to queue
-      toastQueue.current.push(options);
+      // Add to queue with default priority if not specified
+      const enrichedOptions = {
+        ...options,
+        priority: options.priority || 0,
+        timestamp: new Date().toISOString(),
+      };
+
+      toastQueue.current.push(enrichedOptions);
 
       // If not currently processing a toast, start processing
       if (!isProcessing.current) {
@@ -73,6 +166,12 @@ export const AwardToastProvider = ({
     },
     [processNextToast],
   );
+
+  const clearToasts = useCallback(() => {
+    toastQueue.current = [];
+    setOpen(false);
+    isProcessing.current = false;
+  }, []);
 
   const handleOpenChange = useCallback(
     (open: boolean) => {
@@ -87,7 +186,9 @@ export const AwardToastProvider = ({
   );
 
   return (
-    <AwardToastContext.Provider value={{ showAwardToast }}>
+    <AwardToastContext.Provider
+      value={{ showAwardToast, clearToasts, toastHistory }}
+    >
       {children}
       <AwardToast
         open={open}
@@ -96,6 +197,9 @@ export const AwardToastProvider = ({
         description={toastData.description}
         points={toastData.points}
         variant={toastData.variant}
+        metadata={toastData.metadata}
+        soundEnabled={soundEnabled}
+        onToggleSound={toggleSound}
       />
     </AwardToastContext.Provider>
   );

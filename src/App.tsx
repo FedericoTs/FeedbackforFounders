@@ -36,6 +36,7 @@ import { AwardToastListener } from "./components/AwardToastListener";
 import PointsAnimationListener from "./components/dashboard/PointsAnimationListener";
 import { AuthLoading } from "./components/ui/auth-loading";
 import { Spinner } from "./components/ui/spinner";
+import SessionTimeoutProvider from "./components/auth/SessionTimeoutProvider";
 
 interface PrivateRouteProps {
   children: React.ReactNode;
@@ -139,15 +140,18 @@ function App() {
   return (
     <ThemeProvider defaultTheme="light">
       <AuthProvider>
-        <AwardToastProvider>
-          <Suspense fallback={<p>Loading...</p>}>
-            <ErrorBoundary>
-              <AppRoutes />
-            </ErrorBoundary>
-          </Suspense>
-          <Toaster />
-          <AwardToastListener />
-        </AwardToastProvider>
+        <SessionTimeoutProvider>
+          <AwardToastProvider>
+            <Suspense fallback={<p>Loading...</p>}>
+              <ErrorBoundary>
+                <AppRoutes />
+              </ErrorBoundary>
+            </Suspense>
+            <Toaster />
+            <AwardToastListener />
+            <PointsAnimationListener />
+          </AwardToastProvider>
+        </SessionTimeoutProvider>
       </AuthProvider>
     </ThemeProvider>
   );

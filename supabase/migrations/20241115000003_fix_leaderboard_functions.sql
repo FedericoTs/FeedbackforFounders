@@ -1,6 +1,11 @@
 -- Fix for leaderboard functions
 
--- Create or replace the get_leaderboard function
+-- Drop existing functions if they exist to avoid conflicts
+DROP FUNCTION IF EXISTS get_leaderboard(TEXT, TEXT, INTEGER, INTEGER);
+DROP FUNCTION IF EXISTS get_user_rank_details(UUID, TEXT, TEXT);
+DROP FUNCTION IF EXISTS refresh_leaderboard_mv();
+
+-- Create or replace the get_leaderboard function with simplified implementation
 CREATE OR REPLACE FUNCTION get_leaderboard(
   p_timeframe TEXT DEFAULT 'all',
   p_category TEXT DEFAULT 'points',
@@ -8,69 +13,22 @@ CREATE OR REPLACE FUNCTION get_leaderboard(
   p_offset INTEGER DEFAULT 0
 ) RETURNS SETOF JSONB AS $$
 DECLARE
-  query_text TEXT;
-  result JSONB;
+  v_start_date TIMESTAMP;
 BEGIN
-  -- Different queries based on timeframe
-  IF p_timeframe = 'all' THEN
-    -- All time leaderboard
-    RETURN QUERY 
-    SELECT jsonb_build_object(
-      'id', u.id,
-      'name', u.name,
-      'avatar_url', u.avatar_url,
-      'level', u.level,
-      'points', u.points,
-      'percentile', 
-        CASE 
-          WHEN COUNT(*) OVER() > 0 THEN 
-            ROUND((100 - (RANK() OVER(ORDER BY u.points DESC)::FLOAT / COUNT(*) OVER() * 100))::NUMERIC, 1)
-          ELSE 0
-        END
-    )
-    FROM users u
-    ORDER BY u.points DESC
-    LIMIT p_limit
-    OFFSET p_offset;
-  ELSIF p_timeframe = 'month' THEN
-    -- Monthly leaderboard
-    RETURN QUERY 
-    SELECT jsonb_build_object(
-      'id', u.id,
-      'name', u.name,
-      'avatar_url', u.avatar_url,
-      'level', u.level,
-      'points', COALESCE(SUM(pt.points), 0),
-      'percentile', 0 -- Placeholder, calculate if needed
-    )
-    FROM users u
-    LEFT JOIN point_transactions pt ON u.id = pt.user_id
-      AND pt.created_at >= date_trunc('month', CURRENT_DATE)
-    GROUP BY u.id, u.name, u.avatar_url, u.level
-    ORDER BY COALESCE(SUM(pt.points), 0) DESC
-    LIMIT p_limit
-    OFFSET p_offset;
-  ELSIF p_timeframe = 'week' THEN
-    -- Weekly leaderboard
-    RETURN QUERY 
-    SELECT jsonb_build_object(
-      'id', u.id,
-      'name', u.name,
-      'avatar_url', u.avatar_url,
-      'level', u.level,
-      'points', COALESCE(SUM(pt.points), 0),
-      'percentile', 0 -- Placeholder, calculate if needed
-    )
-    FROM users u
-    LEFT JOIN point_transactions pt ON u.id = pt.user_id
-      AND pt.created_at >= date_trunc('week', CURRENT_DATE)
-    GROUP BY u.id, u.name, u.avatar_url, u.level
-    ORDER BY COALESCE(SUM(pt.points), 0) DESC
-    LIMIT p_limit
-    OFFSET p_offset;
-  ELSE
-    -- Default to all time if invalid timeframe
-    RETURN QUERY 
+  -- Set the start date based on timeframe
+  CASE p_timeframe
+    WHEN 'week' THEN
+      v_start_date := date_trunc('week', now());
+    WHEN 'month' THEN
+      v_start_date := date_trunc('month', now());
+    ELSE
+      v_start_date := NULL; -- All time
+  END CASE;
+  
+  -- Points leaderboard (simplified)
+  IF v_start_date IS NULL THEN
+    -- All time
+    RETURN QUERY
     SELECT jsonb_build_object(
       'id', u.id,
       'name', u.name,
@@ -83,179 +41,126 @@ BEGIN
     ORDER BY u.points DESC
     LIMIT p_limit
     OFFSET p_offset;
+  ELSE
+    -- Specific timeframe
+    RETURN QUERY
+    SELECT jsonb_build_object(
+      'id', u.id,
+      'name', u.name,
+      'avatar_url', u.avatar_url,
+      'level', u.level,
+      'points', COALESCE(SUM(pt.points), 0),
+      'percentile', 0
+    )
+    FROM users u
+    LEFT JOIN point_transactions pt ON u.id = pt.user_id
+      AND pt.created_at >= v_start_date
+    GROUP BY u.id, u.name, u.avatar_url, u.level
+    ORDER BY COALESCE(SUM(pt.points), 0) DESC
+    LIMIT p_limit
+    OFFSET p_offset;
   END IF;
   
   RETURN;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Create or replace the get_user_rank_details function
+-- Create or replace the get_user_rank_details function with simplified implementation
 CREATE OR REPLACE FUNCTION get_user_rank_details(
   p_user_id UUID,
   p_timeframe TEXT DEFAULT 'all',
   p_category TEXT DEFAULT 'points'
 ) RETURNS SETOF JSONB AS $$
 DECLARE
-  user_rank INTEGER;
-  total_users INTEGER;
-  user_points INTEGER;
-  user_percentile NUMERIC;
-  highest_rank INTEGER;
-  highest_level INTEGER;
+  v_start_date TIMESTAMP;
+  v_rank INTEGER;
+  v_total INTEGER;
+  v_points INTEGER;
+  v_level INTEGER;
 BEGIN
-  -- Different queries based on timeframe
-  IF p_timeframe = 'all' THEN
-    -- Get user rank for all time
+  -- Set the start date based on timeframe
+  CASE p_timeframe
+    WHEN 'week' THEN
+      v_start_date := date_trunc('week', now());
+    WHEN 'month' THEN
+      v_start_date := date_trunc('month', now());
+    ELSE
+      v_start_date := NULL; -- All time
+  END CASE;
+  
+  -- Get user rank details (simplified)
+  IF v_start_date IS NULL THEN
+    -- All time
     SELECT 
       rank, 
-      total,
+      total_users,
       points,
-      percentile,
-      1, -- placeholder for highest_rank
       level
     INTO 
-      user_rank, 
-      total_users,
-      user_points,
-      user_percentile,
-      highest_rank,
-      highest_level
+      v_rank, 
+      v_total,
+      v_points,
+      v_level
     FROM (
       SELECT 
-        u.id,
-        u.points,
-        u.level,
-        RANK() OVER(ORDER BY u.points DESC) as rank,
-        COUNT(*) OVER() as total,
-        CASE 
-          WHEN COUNT(*) OVER() > 0 THEN 
-            ROUND((100 - (RANK() OVER(ORDER BY u.points DESC)::FLOAT / COUNT(*) OVER() * 100))::NUMERIC, 1)
-          ELSE 0
-        END as percentile
-      FROM users u
-    ) as ranked
-    WHERE id = p_user_id;
-  ELSIF p_timeframe = 'month' THEN
-    -- Get user rank for current month
-    SELECT 
-      rank, 
-      total,
-      points,
-      percentile,
-      1, -- placeholder for highest_rank
-      level
-    INTO 
-      user_rank, 
-      total_users,
-      user_points,
-      user_percentile,
-      highest_rank,
-      highest_level
-    FROM (
-      SELECT 
-        u.id,
-        u.level,
-        COALESCE(SUM(pt.points), 0) as points,
-        RANK() OVER(ORDER BY COALESCE(SUM(pt.points), 0) DESC) as rank,
-        COUNT(*) OVER() as total,
-        CASE 
-          WHEN COUNT(*) OVER() > 0 THEN 
-            ROUND((100 - (RANK() OVER(ORDER BY COALESCE(SUM(pt.points), 0) DESC)::FLOAT / COUNT(*) OVER() * 100))::NUMERIC, 1)
-          ELSE 0
-        END as percentile
-      FROM users u
-      LEFT JOIN point_transactions pt ON u.id = pt.user_id
-        AND pt.created_at >= date_trunc('month', CURRENT_DATE)
-      GROUP BY u.id, u.level
-    ) as ranked
-    WHERE id = p_user_id;
-  ELSIF p_timeframe = 'week' THEN
-    -- Get user rank for current week
-    SELECT 
-      rank, 
-      total,
-      points,
-      percentile,
-      1, -- placeholder for highest_rank
-      level
-    INTO 
-      user_rank, 
-      total_users,
-      user_points,
-      user_percentile,
-      highest_rank,
-      highest_level
-    FROM (
-      SELECT 
-        u.id,
-        u.level,
-        COALESCE(SUM(pt.points), 0) as points,
-        RANK() OVER(ORDER BY COALESCE(SUM(pt.points), 0) DESC) as rank,
-        COUNT(*) OVER() as total,
-        CASE 
-          WHEN COUNT(*) OVER() > 0 THEN 
-            ROUND((100 - (RANK() OVER(ORDER BY COALESCE(SUM(pt.points), 0) DESC)::FLOAT / COUNT(*) OVER() * 100))::NUMERIC, 1)
-          ELSE 0
-        END as percentile
-      FROM users u
-      LEFT JOIN point_transactions pt ON u.id = pt.user_id
-        AND pt.created_at >= date_trunc('week', CURRENT_DATE)
-      GROUP BY u.id, u.level
-    ) as ranked
+        id, 
+        points,
+        level,
+        RANK() OVER (ORDER BY points DESC) as rank,
+        COUNT(*) OVER() as total_users
+      FROM users
+    ) u
     WHERE id = p_user_id;
   ELSE
-    -- Default to all time if invalid timeframe
+    -- Specific timeframe
     SELECT 
       rank, 
-      total,
+      total_users,
       points,
-      percentile,
-      1, -- placeholder for highest_rank
       level
     INTO 
-      user_rank, 
-      total_users,
-      user_points,
-      user_percentile,
-      highest_rank,
-      highest_level
+      v_rank, 
+      v_total,
+      v_points,
+      v_level
     FROM (
       SELECT 
-        u.id,
-        u.points,
+        u.id, 
         u.level,
-        RANK() OVER(ORDER BY u.points DESC) as rank,
-        COUNT(*) OVER() as total,
-        CASE 
-          WHEN COUNT(*) OVER() > 0 THEN 
-            ROUND((100 - (RANK() OVER(ORDER BY u.points DESC)::FLOAT / COUNT(*) OVER() * 100))::NUMERIC, 1)
-          ELSE 0
-        END as percentile
+        COALESCE(SUM(pt.points), 0) as points,
+        RANK() OVER (ORDER BY COALESCE(SUM(pt.points), 0) DESC) as rank,
+        COUNT(*) OVER() as total_users
       FROM users u
-    ) as ranked
+      LEFT JOIN point_transactions pt ON u.id = pt.user_id
+        AND pt.created_at >= v_start_date
+      GROUP BY u.id, u.level
+    ) u
     WHERE id = p_user_id;
   END IF;
   
   -- Return the result as JSONB
   RETURN QUERY 
   SELECT jsonb_build_object(
-    'rank', COALESCE(user_rank, 0),
-    'total_users', COALESCE(total_users, 0),
-    'points', COALESCE(user_points, 0),
-    'percentile', COALESCE(user_percentile, 0),
-    'highest_rank', COALESCE(highest_rank, 0),
-    'highest_level', COALESCE(highest_level, 0)
+    'rank', COALESCE(v_rank, 0),
+    'total_users', COALESCE(v_total, 0),
+    'points', COALESCE(v_points, 0),
+    'percentile', CASE WHEN v_total > 0 THEN ROUND((1 - (v_rank::FLOAT / v_total::FLOAT)) * 100) ELSE 0 END,
+    'highest_rank', COALESCE(v_rank, 0),
+    'highest_level', COALESCE(v_level, 1)
   );
   
   RETURN;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Create or replace the refresh_leaderboard_mv function
+-- Create a simplified refresh_leaderboard_mv function that doesn't rely on materialized views
 CREATE OR REPLACE FUNCTION refresh_leaderboard_mv() RETURNS BOOLEAN AS $$
 BEGIN
-  -- This function would normally refresh a materialized view
-  -- But since we're using functions directly, we'll just return true
+  -- This is a simplified version that doesn't actually refresh a materialized view
+  -- It just returns true to indicate success
   RETURN TRUE;
+  
+  EXCEPTION WHEN OTHERS THEN
+    RETURN FALSE;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
