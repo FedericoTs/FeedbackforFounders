@@ -25,21 +25,26 @@ import {
   Trophy,
   Users,
   ThumbsUp,
+  ArrowRight,
 } from "lucide-react";
 import { profileService } from "@/services/profile";
+import { pointsService } from "@/services/points";
 import { rewardsService } from "@/services/rewards";
 import { useLoginReward } from "@/lib/useLoginReward";
 import { useLoginStreak } from "@/lib/useLoginStreak";
 import LoginStreakDisplay from "./LoginStreakDisplay";
+import { Link } from "react-router-dom";
 
 interface RewardsPanelProps {
   userId?: string;
   showLoginReward?: boolean;
+  showViewAllLink?: boolean;
 }
 
 const RewardsPanel = ({
   userId,
   showLoginReward = true,
+  showViewAllLink = true,
 }: RewardsPanelProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -47,6 +52,7 @@ const RewardsPanel = ({
   const [userProfile, setUserProfile] = useState<any>(null);
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
   const [achievements, setAchievements] = useState<any[]>([]);
+  const [pointStats, setPointStats] = useState<any>(null);
   const { isProcessing: processingLoginReward, result: loginRewardResult } =
     useLoginReward();
   const { isProcessing: processingLoginStreak, result: loginStreakResult } =
@@ -64,6 +70,7 @@ const RewardsPanel = ({
     try {
       setLoading(true);
 
+      // Get user profile data
       const { data: profileData, error: profileError } = await supabase
         .from("users")
         .select("*")
@@ -73,6 +80,11 @@ const RewardsPanel = ({
       if (profileError) throw profileError;
       setUserProfile(profileData);
 
+      // Get point statistics
+      const stats = await pointsService.getUserPointStatistics(targetUserId);
+      setPointStats(stats);
+
+      // Get recent activities
       const { data: activities, error: activitiesError } = await supabase
         .from("user_activity")
         .select("*")
@@ -84,6 +96,7 @@ const RewardsPanel = ({
       if (activitiesError) throw activitiesError;
       setRecentActivities(activities || []);
 
+      // Get achievements
       const { data: achievementsData, error: achievementsError } =
         await supabase
           .from("user_achievements")
@@ -146,10 +159,20 @@ const RewardsPanel = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center">
-          <Trophy className="h-5 w-5 mr-2 text-amber-500" />
-          Rewards & Achievements
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center">
+            <Trophy className="h-5 w-5 mr-2 text-amber-500" />
+            Rewards & Achievements
+          </CardTitle>
+          {showViewAllLink && (
+            <Link to="/dashboard/rewards">
+              <Button variant="ghost" size="sm" className="gap-1">
+                View All
+                <ArrowRight className="h-3 w-3" />
+              </Button>
+            </Link>
+          )}
+        </div>
         <CardDescription>
           Track your progress and earned rewards
         </CardDescription>
@@ -229,6 +252,25 @@ const RewardsPanel = ({
           </div>
         )}
 
+        {pointStats && (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-slate-50 rounded-lg p-3">
+              <h4 className="text-xs font-medium text-slate-500 mb-1">Today</h4>
+              <p className="text-lg font-semibold text-teal-600">
+                +{pointStats.pointsToday}
+              </p>
+            </div>
+            <div className="bg-slate-50 rounded-lg p-3">
+              <h4 className="text-xs font-medium text-slate-500 mb-1">
+                This Week
+              </h4>
+              <p className="text-lg font-semibold text-teal-600">
+                +{pointStats.pointsThisWeek}
+              </p>
+            </div>
+          </div>
+        )}
+
         <div>
           <h4 className="text-sm font-medium mb-3">Recent Point Activity</h4>
           {recentActivities.length > 0 ? (
@@ -246,83 +288,61 @@ const RewardsPanel = ({
                     )}
                   </div>
                   <div className="flex-1">
-                    <div className="flex justify-between items-start">
-                      <span className="text-sm font-medium">
-                        {activity.activity_type.replace(/_/g, " ")}
-                      </span>
-                      <span
-                        className={`text-sm font-medium ${activity.points > 0 ? "text-teal-600" : "text-slate-600"}`}
-                      >
-                        {activity.points > 0 ? "+" : ""}
-                        {activity.points}
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      {activity.description}
-                    </p>
-                    <span className="text-xs text-slate-400 mt-0.5">
+                    <p className="text-sm">{activity.description}</p>
+                    <p className="text-xs text-slate-500">
                       {formatDate(activity.created_at)}
-                    </span>
+                    </p>
                   </div>
+                  {activity.points > 0 && (
+                    <Badge className="bg-teal-100 text-teal-700">
+                      +{activity.points} points
+                    </Badge>
+                  )}
                 </div>
               ))}
             </div>
           ) : (
             <p className="text-sm text-slate-500 italic">
-              No point activity yet. Complete actions to earn points!
+              No recent point activity found.
             </p>
           )}
         </div>
 
-        <div>
-          <h4 className="text-sm font-medium mb-3">Achievements</h4>
-          {achievements.length > 0 ? (
-            <div className="grid grid-cols-2 gap-3">
-              {achievements.map((achievement) => (
+        {achievements.length > 0 && (
+          <div>
+            <h4 className="text-sm font-medium mb-3">Recent Achievements</h4>
+            <div className="space-y-3">
+              {achievements.slice(0, 3).map((achievement) => (
                 <div
                   key={achievement.achievement_id}
-                  className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 flex flex-col items-center text-center"
+                  className="flex items-start gap-2 pb-2 border-b border-slate-100 dark:border-slate-800 last:border-0 last:pb-0"
                 >
                   <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center mb-2 bg-${achievement.achievements?.color || "amber"}-100 dark:bg-${achievement.achievements?.color || "amber"}-900/30`}
+                    className={`mt-0.5 p-1.5 rounded-full ${achievement.achievements?.color || "bg-amber-100"}`}
                   >
                     {getIconComponent(
-                      achievement.achievements?.icon || "Star",
-                      `h-4 w-4 text-${achievement.achievements?.color || "amber"}-500`,
+                      achievement.achievements?.icon || "Trophy",
+                      "h-3.5 w-3.5",
                     )}
                   </div>
-                  <h4 className="text-sm font-medium">
-                    {achievement.achievements?.title || "Achievement"}
-                  </h4>
-                  <p className="text-xs text-slate-500 mt-1">
-                    {achievement.achievements?.description ||
-                      "Achievement description"}
-                  </p>
-                  <div className="mt-2 flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
-                    <Star className="h-3 w-3" />
-                    <span>
-                      +{achievement.achievements?.points_reward || 0} points
-                    </span>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">
+                      {achievement.achievements?.title ||
+                        "Achievement Unlocked"}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {formatDate(achievement.earned_at)}
+                    </p>
                   </div>
+                  <Badge className="bg-amber-100 text-amber-700">
+                    +{achievement.achievements?.points_reward || 0} points
+                  </Badge>
                 </div>
               ))}
             </div>
-          ) : (
-            <p className="text-sm text-slate-500 italic">
-              No achievements yet. Keep participating to earn badges!
-            </p>
-          )}
-        </div>
+          </div>
+        )}
       </CardContent>
-      <CardFooter>
-        <Button
-          variant="outline"
-          className="w-full"
-          onClick={() => fetchUserData()}
-        >
-          Refresh Rewards Data
-        </Button>
-      </CardFooter>
     </Card>
   );
 };

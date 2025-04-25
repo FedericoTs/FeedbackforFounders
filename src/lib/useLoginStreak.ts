@@ -1,23 +1,17 @@
 import { useState, useEffect } from "react";
-import { useAuth } from "../../supabase/auth";
+import { useAuth } from "@/supabase/auth";
 import { useToast } from "@/components/ui/use-toast";
-import { supabase } from "../../supabase/supabase";
+import { supabase } from "@/supabase/supabase";
 
 interface LoginStreakResult {
   success: boolean;
-  message?: string;
   streak: number;
   maxStreak: number;
-  bonusPoints?: number;
-  basePoints?: number;
-  totalPoints?: number;
-  streakBroken?: boolean;
-  newRecord?: boolean;
-  alreadyLoggedIn?: boolean;
+  message?: string;
 }
 
 /**
- * Hook to check and process daily login streak
+ * Hook to check and update the user's login streak
  */
 export function useLoginStreak() {
   const { user } = useAuth();
@@ -37,104 +31,67 @@ export function useLoginStreak() {
       setIsProcessing(true);
 
       // Check if we've already processed a login streak today
-      const lastLoginCheck = localStorage.getItem("last_streak_check");
+      const lastStreakCheck = localStorage.getItem("last_streak_check");
       const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD format
 
-      if (lastLoginCheck === today) {
+      if (lastStreakCheck === today) {
         // Already checked today, don't process again
         setIsProcessing(false);
         return;
       }
 
-      // Process the login streak
-      const { data, error } = await supabase.functions.invoke(
-        "supabase-functions-daily-streak",
-        {
-          body: { userId: user.id },
-        },
-      );
+      // Get the user's current streak data
+      const { data: streakData, error: streakError } = await supabase
+        .from("user_login_streaks")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
 
-      if (error) {
-        console.error("[Login Streak] Error processing login streak:", error);
-        setResult({
-          success: false,
-          message: "Failed to process login streak",
-          streak: 0,
-          maxStreak: 0,
-        });
+      if (streakError && streakError.code !== "PGRST116") {
+        // PGRST116 is "no rows returned" error, which is expected for new users
+        console.error("Error fetching streak data:", streakError);
+        setIsProcessing(false);
         return;
       }
 
-      setResult(data);
+      // Call the Supabase Edge Function to process the streak
+      const { data: streakResult, error: functionError } =
+        await supabase.functions.invoke("supabase-functions-daily-streak", {
+          body: { userId: user.id },
+        });
+
+      if (functionError) {
+        console.error("Error processing login streak:", functionError);
+        setIsProcessing(false);
+        return;
+      }
 
       // Store today's date to prevent multiple checks
       localStorage.setItem("last_streak_check", today);
 
-      // Ensure the user's points are updated in the database
-      try {
-        if (data.success && !data.alreadyLoggedIn && data.totalPoints > 0) {
-          console.log(
-            `[Login Streak] Successfully processed streak. Total points: ${data.totalPoints}`,
-          );
+      // Set the result
+      setResult({
+        success: true,
+        streak: streakResult?.streak || 1,
+        maxStreak: streakResult?.maxStreak || 1,
+        message: streakResult?.message || "Login streak updated!",
+      });
 
-          // Get current user data to verify points were updated
-          const { data: userData, error: userError } = await supabase
-            .from("users")
-            .select("points")
-            .eq("id", user.id)
-            .single();
-
-          if (!userError && userData) {
-            console.log(
-              `[Login Streak] Current user points: ${userData.points}`,
-            );
-          }
-        }
-      } catch (syncError) {
-        console.error("[Login Streak] Error syncing user points:", syncError);
-      }
-
-      // Show toast notification for streak achievements
-      if (data.success && !data.alreadyLoggedIn) {
-        // If it's a new record or a significant streak milestone
-        if (
-          data.newRecord ||
-          data.streak === 7 ||
-          data.streak === 14 ||
-          data.streak === 30 ||
-          data.streak === 100
-        ) {
-          toast({
-            title: "Login Streak Achievement",
-            description: data.message,
-          });
-        }
-
-        // If there are bonus points
-        if (data.bonusPoints > 0) {
-          toast({
-            title: "Streak Bonus Points",
-            description: `You earned ${data.bonusPoints} bonus points for your ${data.streak}-day streak!`,
-          });
-        }
-      }
-
-      // If the streak was broken, show a gentle reminder
-      if (data.streakBroken) {
+      // Show a toast for streak milestones
+      if (streakResult?.streakMilestone) {
         toast({
-          title: "Streak Reset",
-          description:
-            "Your login streak was reset. Come back tomorrow to start building it again!",
-          variant: "destructive",
+          title: "Streak Milestone!",
+          description: `You've logged in for ${streakResult.streak} days in a row! Keep it up!`,
+          variant: "default",
         });
       }
     } catch (error) {
-      console.error("Error in login streak processing:", error);
+      console.error("Error processing login streak:", error);
       setResult({
         success: false,
-        message: "An error occurred while processing your login streak",
         streak: 0,
         maxStreak: 0,
+        message: "Failed to process login streak.",
       });
     } finally {
       setIsProcessing(false);

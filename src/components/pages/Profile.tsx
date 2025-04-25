@@ -1,5 +1,5 @@
 import React, { useState, useEffect, ChangeEvent } from "react";
-import { supabase } from "../../../supabase/supabase";
+import { supabase } from "@/supabase/supabase";
 import {
   Card,
   CardContent,

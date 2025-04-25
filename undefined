@@ -1,0 +1,60 @@
+import React from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import PointsHistoryPanel from "@/components/dashboard/PointsHistoryPanel";
+import PointsLeaderboard from "@/components/dashboard/PointsLeaderboard";
+import RewardsPanel from "@/components/dashboard/RewardsPanel";
+import PointsSystemDemo from "@/components/dashboard/PointsSystemDemo";
+
+export default function PointsSystemStoryboard() {
+  return (
+    <div className="bg-white min-h-screen p-6">
+      <h1 className="text-3xl font-bold mb-6">Points System Components</h1>
+      
+      <div className="mb-6">
+        <PointsSystemDemo />
+      </div>
+      
+      <Tabs defaultValue="rewards" className="w-full">
+        <TabsList className="mb-4">
+          <TabsTrigger value="rewards">Rewards Panel</TabsTrigger>
+          <TabsTrigger value="history">Points History</TabsTrigger>
+          <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="rewards" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Rewards Panel</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <RewardsPanel showLoginReward={true} showViewAllLink={true} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="history" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Points History Panel</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PointsHistoryPanel />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="leaderboard" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Points Leaderboard</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PointsLeaderboard />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}

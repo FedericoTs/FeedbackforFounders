@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { useAuth } from "../../supabase/auth";
+import { useAuth } from "@/supabase/auth";
 import { useToast } from "@/components/ui/use-toast";
 import { rewardsService } from "@/services/rewards";
-import { supabase } from "../../supabase/supabase";
+import { supabase } from "@/supabase/supabase";
 
 /**
  * Hook to check for and process daily login rewards

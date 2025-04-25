@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/supabase/auth";
 import {
   Tooltip,
   TooltipContent,
@@ -27,6 +28,7 @@ import {
   Award,
   Users,
   Zap,
+  LogOut,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 
@@ -191,6 +193,7 @@ const defaultFilters = [
 ];
 
 const Sidebar = ({ activeItem, onItemClick = () => {} }: SidebarProps) => {
+  const { signOut } = useAuth();
   const location = useLocation();
   // State for collapsed sidebar
   const [collapsed, setCollapsed] = useState(false);
@@ -426,16 +429,16 @@ const Sidebar = ({ activeItem, onItemClick = () => {} }: SidebarProps) => {
             </div>
           ))}
 
-          <Separator className="my-4" />
+          <Separator className="my-4 dark:bg-gray-700" />
 
           {/* Filters Section */}
           {!collapsed && (
             <div className="space-y-1 mb-4">
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-gray-500">
+                <span className="text-gray-500 dark:text-gray-400">
                   <Search size={16} />
                 </span>
-                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Quick Filters
                 </h3>
               </div>
@@ -448,17 +451,40 @@ const Sidebar = ({ activeItem, onItemClick = () => {} }: SidebarProps) => {
                   <span
                     className={`h-2 w-2 rounded-full ${filter.color}`}
                   ></span>
-                  <span className="text-gray-700">{filter.label}</span>
+                  <span className="text-gray-700 dark:text-gray-300">
+                    {filter.label}
+                  </span>
                 </Button>
               ))}
             </div>
           )}
+
+          {/* Sign Out Button */}
+          <div className="mt-auto">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className={`w-full ${collapsed ? "justify-center px-2" : "justify-start gap-2"} text-sm h-10 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 hover:text-red-700 dark:hover:text-red-300 mt-4`}
+                  onClick={() => signOut()}
+                >
+                  <LogOut size={18} />
+                  {!collapsed && <span>Sign Out</span>}
+                </Button>
+              </TooltipTrigger>
+              {collapsed && (
+                <TooltipContent side="right">
+                  <p>Sign Out</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </div>
         </TooltipProvider>
       </ScrollArea>
 
       {/* Footer with version info */}
       {!collapsed && (
-        <div className="p-3 border-t border-gray-100 text-xs text-gray-500">
+        <div className="p-3 border-t border-gray-100 dark:border-gray-800 text-xs text-gray-500 dark:text-gray-400">
           <p>Feedback Ecosystem v1.0</p>
         </div>
       )}

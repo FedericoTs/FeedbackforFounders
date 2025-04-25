@@ -1,4 +1,4 @@
-import { supabase } from "../../supabase/supabase";
+import { supabase } from "@/supabase/supabase";
 import { activityService } from "./activity";
 import { gamificationService } from "./gamification";
 

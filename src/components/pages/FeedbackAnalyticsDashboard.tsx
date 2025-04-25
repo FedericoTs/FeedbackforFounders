@@ -1,6 +1,7 @@
 import React from "react";
 import FeedbackAnalyticsDashboard from "../feedback/FeedbackAnalyticsDashboard";
 import { useParams } from "react-router-dom";
+import withAuth from "@/lib/withAuth";
 
 const FeedbackAnalyticsDashboardPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
@@ -12,4 +13,4 @@ const FeedbackAnalyticsDashboardPage: React.FC = () => {
   );
 };
 
-export default FeedbackAnalyticsDashboardPage;
+export default withAuth(FeedbackAnalyticsDashboardPage);
