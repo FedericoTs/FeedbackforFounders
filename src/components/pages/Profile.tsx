@@ -51,7 +51,6 @@ import {
   X,
 } from "lucide-react";
 
-// Get icon component based on name
 const getIconComponent = (iconName: string, className = "h-5 w-5") => {
   const icons: Record<string, React.ReactNode> = {
     MessageSquare: <MessageSquare className={className} />,
@@ -78,28 +77,22 @@ const Profile = () => {
     if (!file) return;
 
     try {
-      // Show loading state
       setIsSaving(true);
 
-      // Create a unique file name
       const fileExt = file.name.split(".").pop();
       const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
 
-      // Upload to Supabase Storage - using 'avatars' bucket directly
       const bucketName = type === "avatar" ? "avatars" : "banners";
 
-      // Try to create the bucket if it doesn't exist (will succeed silently if it already exists)
       try {
         await supabase.storage.createBucket(bucketName, {
           public: true,
-          fileSizeLimit: 1024 * 1024 * 2, // 2MB limit
+          fileSizeLimit: 1024 * 1024 * 2,
         });
       } catch (bucketError) {
         console.log(`Bucket ${bucketName} might already exist:`, bucketError);
-        // Continue anyway as the bucket might already exist
       }
 
-      // Upload to the appropriate bucket
       const { data, error } = await supabase.storage
         .from(bucketName)
         .upload(fileName, file);
@@ -108,25 +101,21 @@ const Profile = () => {
         throw error;
       }
 
-      // Get public URL
       const { data: urlData } = supabase.storage
         .from(bucketName)
         .getPublicUrl(fileName);
 
-      // Update form data with new image URL
       if (type === "avatar") {
         setFormData((prev) => ({ ...prev, avatar_url: urlData.publicUrl }));
       } else {
         setFormData((prev) => ({ ...prev, banner_url: urlData.publicUrl }));
       }
 
-      // Save the profile with the new image URL
       await profileService.updateProfile({
         ...formData,
         [type === "avatar" ? "avatar_url" : "banner_url"]: urlData.publicUrl,
       });
 
-      // Refresh profile data
       const updatedProfile = await profileService.getProfile();
       setProfileData(updatedProfile);
 
@@ -153,7 +142,6 @@ const Profile = () => {
   const [isSyncingPoints, setIsSyncingPoints] = useState(false);
   const [profileData, setProfileData] = useState<ProfileResponse | null>(null);
 
-  // Form state
   const [formData, setFormData] = useState<
     ProfileUpdateData & { _skillsInput?: string }
   >({
@@ -173,7 +161,6 @@ const Profile = () => {
     ],
   });
 
-  // Debug function to check user_activity table directly
   const debugCheckUserActivity = async () => {
     if (!user) return;
 
@@ -192,7 +179,6 @@ const Profile = () => {
         console.log(`Found ${data?.length || 0} activity records:`, data);
       }
 
-      // Also check the current user points in the users table
       const { data: userData, error: userError } = await supabase
         .from("users")
         .select("points, level, points_to_next_level")
@@ -209,7 +195,6 @@ const Profile = () => {
     }
   };
 
-  // Function to synchronize user points
   const syncUserPoints = async () => {
     if (!user) return;
 
@@ -220,7 +205,6 @@ const Profile = () => {
         description: "Please wait while we update your points...",
       });
 
-      // Calculate total points from activity records
       const { data: activityData, error: activityError } = await supabase
         .from("user_activity")
         .select("points")
@@ -232,13 +216,11 @@ const Profile = () => {
         );
       }
 
-      // Sum up all points from activities
       const totalPoints = activityData.reduce(
         (sum, activity) => sum + (activity.points || 0),
         0,
       );
 
-      // Get current user data
       const { data: userData, error: userError } = await supabase
         .from("users")
         .select("points")
@@ -249,7 +231,6 @@ const Profile = () => {
         throw new Error(`Error fetching user data: ${userError.message}`);
       }
 
-      // Update user's points if different from calculated total
       if (totalPoints !== userData.points) {
         console.log(
           `Updating user ${user.id} points from ${userData.points} to ${totalPoints}`,
@@ -275,7 +256,6 @@ const Profile = () => {
         });
       }
 
-      // Refresh profile data to show updated points
       await fetchProfileData();
     } catch (error) {
       console.error("Error synchronizing points:", error);
@@ -290,13 +270,11 @@ const Profile = () => {
     }
   };
 
-  // Fetch profile data
   const fetchProfileData = async () => {
     try {
       setIsLoading(true);
       const data = await profileService.getProfile();
 
-      // Ensure we have valid data with default values for missing properties
       const validData = {
         user: data?.user || {
           full_name: user?.email || "",
@@ -323,26 +301,22 @@ const Profile = () => {
       console.log("Stats:", validData.stats);
       console.log("Activity:", validData.activity);
 
-      // Calculate total points from activity records as a source of truth
       if (
         user &&
         Array.isArray(validData.activity) &&
         validData.activity.length > 0
       ) {
         try {
-          // Sum up all points from activities
           const calculatedPoints = validData.activity.reduce(
             (sum, activity) => sum + (activity.points || 0),
             0,
           );
 
-          // If the calculated points differ from the user's points, update the user record
           if (calculatedPoints !== validData.user.points) {
             console.log(
               `[Profile] Points mismatch detected. User record: ${validData.user.points}, Calculated: ${calculatedPoints}`,
             );
 
-            // Update the user's points in the database
             const { error: updateError } = await supabase
               .from("users")
               .update({ points: calculatedPoints })
@@ -357,7 +331,6 @@ const Profile = () => {
               console.log(
                 `[Profile] Updated user points to ${calculatedPoints}`,
               );
-              // Update the local state with the corrected points
               validData.user.points = calculatedPoints;
             }
           }
@@ -371,7 +344,6 @@ const Profile = () => {
 
       setProfileData(validData);
 
-      // Initialize form data
       const skills = validData.skills || [];
       setFormData({
         name: validData.user.full_name || "",
@@ -403,7 +375,6 @@ const Profile = () => {
         variant: "destructive",
       });
 
-      // Set default profile data on error
       const defaultData = {
         user: {
           full_name: user?.email || "",
@@ -426,7 +397,6 @@ const Profile = () => {
 
       setProfileData(defaultData);
 
-      // Initialize form with default data
       setFormData({
         name: defaultData.user.full_name || "",
         bio: "",
@@ -451,7 +421,6 @@ const Profile = () => {
   useEffect(() => {
     if (user) {
       fetchProfileData();
-      // Also directly check user_activity table for debugging
       debugCheckUserActivity();
     } else {
       setIsLoading(false);
@@ -478,15 +447,10 @@ const Profile = () => {
   };
 
   const handleSkillsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Simply store the raw input value without processing
     const inputValue = e.target.value;
-
-    // Only split and process when saving the form, not during typing
-    // This allows spaces and commas to be typed normally
     setFormData((prev) => ({
       ...prev,
       skills: prev.skills,
-      // Store the raw input as a temporary property
       _skillsInput: inputValue,
     }));
   };
@@ -496,16 +460,13 @@ const Profile = () => {
       setIsSaving(true);
       console.log("Form data before save:", formData);
 
-      // Filter out empty social links
       const filteredSocialLinks =
         formData.socialLinks?.filter(
           (link) => link.username && link.username.trim() !== "",
         ) || [];
 
-      // Process the skills input field when saving
       let processedSkills = formData.skills || [];
 
-      // If we have raw input, process it
       if (formData._skillsInput !== undefined) {
         processedSkills = formData._skillsInput
           .split(",")
@@ -513,31 +474,25 @@ const Profile = () => {
           .filter((skill) => skill !== "");
       }
 
-      // Ensure skills are properly filtered
       const filteredSkills =
         processedSkills.filter((skill) => skill && skill.trim() !== "") || [];
 
       console.log("Filtered skills before update:", filteredSkills);
 
-      // Prepare update data
       const updateData = {
         ...formData,
         socialLinks: filteredSocialLinks,
         skills: filteredSkills,
       };
 
-      // Update profile in Supabase
       await profileService.updateProfile(updateData);
 
       try {
-        // Add a small delay to ensure database operations complete
         await new Promise((resolve) => setTimeout(resolve, 500));
 
-        // Refresh profile data from Supabase
         const updatedProfile = await profileService.getProfile();
         console.log("Refreshed profile data from Supabase:", updatedProfile);
 
-        // Ensure we have valid data with defaults for missing properties
         const validData = {
           user: updatedProfile?.user || {
             ...profileData.user,
@@ -579,7 +534,6 @@ const Profile = () => {
         setProfileData(validData);
       } catch (refreshError) {
         console.error("Error refreshing profile data:", refreshError);
-        // Update the local state with the form data to show changes
         const fallbackData = {
           ...profileData,
           user: {
@@ -629,9 +583,7 @@ const Profile = () => {
 
   return (
     <div>
-      {/* Profile Header */}
       <div className="relative mb-8">
-        {/* Cover Image */}
         <div className="h-48 w-full rounded-xl bg-gradient-to-r from-teal-500 via-cyan-500 to-emerald-500 overflow-hidden relative">
           {profileData.user.banner_url && (
             <img
@@ -682,7 +634,6 @@ const Profile = () => {
           </div>
         </div>
 
-        {/* Profile Info */}
         <div className="absolute -bottom-16 left-8 flex items-end">
           <div className="relative">
             <div className="absolute inset-0 rounded-full bg-gradient-to-r from-teal-400 to-cyan-400 blur-[6px] opacity-75" />
@@ -738,11 +689,8 @@ const Profile = () => {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="mt-20 grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column - Profile Info */}
         <div className="space-y-6">
-          {/* Profile Details */}
           <Card className="bg-white dark:bg-slate-800 shadow-sm">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg font-semibold text-slate-900 dark:text-white">
@@ -926,7 +874,6 @@ const Profile = () => {
             </CardContent>
           </Card>
 
-          {/* Social Links */}
           <Card className="bg-white dark:bg-slate-800 shadow-sm">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg font-semibold text-slate-900 dark:text-white">
@@ -1126,7 +1073,6 @@ const Profile = () => {
             </CardContent>
           </Card>
 
-          {/* Account Stats */}
           <Card className="bg-white dark:bg-slate-800 shadow-sm">
             <CardHeader className="pb-2">
               <div className="flex justify-between items-center">
@@ -1212,9 +1158,7 @@ const Profile = () => {
           </Card>
         </div>
 
-        {/* Middle Column - Achievements & Activity */}
         <div className="space-y-6">
-          {/* Achievements */}
           <Card className="bg-white dark:bg-slate-800 shadow-sm">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg font-semibold text-slate-900 dark:text-white">
@@ -1271,7 +1215,6 @@ const Profile = () => {
             </CardContent>
           </Card>
 
-          {/* Recent Activity */}
           <Card className="bg-white dark:bg-slate-800 shadow-sm">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg font-semibold text-slate-900 dark:text-white">
@@ -1307,7 +1250,6 @@ const Profile = () => {
                       case "project_created":
                         icon = <Edit className="h-4 w-4 text-indigo-500" />;
                         title = "Created project";
-                        // Use description directly since we're not joining with projects table
                         description =
                           activity.description || "Created a new project";
                         break;
@@ -1385,9 +1327,7 @@ const Profile = () => {
           </Card>
         </div>
 
-        {/* Right Column - Settings & Security */}
         <div className="space-y-6">
-          {/* Account Settings */}
           <Card className="bg-white dark:bg-slate-800 shadow-sm">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg font-semibold text-slate-900 dark:text-white">
@@ -1470,7 +1410,6 @@ const Profile = () => {
             </CardContent>
           </Card>
 
-          {/* Membership */}
           <Card className="bg-white dark:bg-slate-800 shadow-sm">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg font-semibold text-slate-900 dark:text-white">
@@ -1522,7 +1461,6 @@ const Profile = () => {
             </CardContent>
           </Card>
 
-          {/* Danger Zone */}
           <Card className="bg-white dark:bg-slate-800 shadow-sm border-red-100 dark:border-red-900/20">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg font-semibold text-red-600 dark:text-red-400">
@@ -1555,4 +1493,4 @@ const Profile = () => {
   );
 };
 
-export default Profile;
+export default withAuth(Profile);

@@ -40,8 +40,8 @@ import {
   ThumbsUp,
   X,
 } from "lucide-react";
-import { useAuth } from "../../../supabase/auth";
-import { supabase } from "../../../supabase/supabase";
+import { useAuth } from "@/supabase/auth";
+import { supabase } from "@/supabase/supabase";
 import { Compass } from "lucide-react";
 import { feedbackService } from "@/services/feedback";
 import { projectSectionsService } from "@/services/projectSections";
@@ -999,4 +999,6 @@ const FeedbackInterface = () => {
   );
 };
 
-export default FeedbackInterface;
+import withAuth from "@/lib/withAuth";
+
+export default withAuth(FeedbackInterface);

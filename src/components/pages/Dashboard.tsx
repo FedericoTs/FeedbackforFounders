@@ -7,7 +7,9 @@ import UserProfile from "../dashboard/UserProfile";
 import LoginStreakDisplay from "../dashboard/LoginStreakDisplay";
 import RewardsPanel from "../dashboard/RewardsPanel";
 
-export default function Dashboard() {
+import withAuth from "@/lib/withAuth";
+
+function Dashboard() {
   return (
     <div className="container mx-auto py-6 px-4">
       <div className="flex flex-col md:flex-row gap-6 mb-6">
@@ -48,3 +50,5 @@ export default function Dashboard() {
     </div>
   );
 }
+
+export default withAuth(Dashboard);

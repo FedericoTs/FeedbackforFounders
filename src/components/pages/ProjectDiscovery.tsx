@@ -30,7 +30,7 @@ import {
   ThumbsUp,
 } from "lucide-react";
 import { projectService } from "@/services/project";
-import { useAuth } from "../../../supabase/auth";
+import { useAuth } from "@/supabase/auth";
 import { useToast } from "@/components/ui/use-toast";
 
 // Default thumbnail images by category
@@ -506,4 +506,6 @@ const ProjectDiscovery = () => {
   );
 };
 
-export default ProjectDiscovery;
+import withAuth from "@/lib/withAuth";
+
+export default withAuth(ProjectDiscovery);

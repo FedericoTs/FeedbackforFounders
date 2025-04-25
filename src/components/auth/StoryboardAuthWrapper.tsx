@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
-import AuthProvider from "@/supabase/auth";
+import React, { createContext, useContext } from "react";
+import { AuthProvider } from "@/supabase/auth";
 import { User } from "@supabase/supabase-js";
 import { ROLES } from "@/lib/roles";
 import { Badge } from "@/components/ui/badge";
@@ -53,6 +53,17 @@ type MockAuthContextType = {
   getSessionTimeRemaining: () => string;
   revokeSession: (sessionId: string) => Promise<boolean>;
   getAllSessions: () => Promise<any[] | null>;
+  sessionTimeoutWarning: {
+    visible: boolean;
+    threshold: number;
+    timeRemaining?: number;
+  };
+  extendSession: () => Promise<boolean>;
+  configureSessionTimeout: (options: {
+    warningThreshold?: number;
+    idleTimeout?: number;
+    absoluteTimeout?: number;
+  }) => void;
 };
 
 // Create a mock auth context
@@ -67,188 +78,109 @@ function MockAuthProvider({
   mockLoading = false,
 }: {
   children: React.ReactNode;
-  mockUser?: StoryboardAuthWrapperProps["mockUser"];
+  mockUser?: {
+    id: string;
+    email: string;
+    role?: string;
+    [key: string]: any;
+  };
   mockLoading?: boolean;
 }) {
-  const [loading, setLoading] = useState(mockLoading);
-  const [user, setUser] = useState<User | null>(null);
-
-  // Initialize mock user on mount
-  useEffect(() => {
-    if (mockUser) {
-      // Convert mockUser to a format that matches the User type
-      const formattedUser = {
+  // Create a mock user object that matches the User type from Supabase
+  const user = mockUser
+    ? ({
         id: mockUser.id,
-        email: mockUser.email || "test@example.com",
+        email: mockUser.email,
         user_metadata: {
           role: mockUser.role || ROLES.USER,
-          full_name: mockUser.full_name || "Test User",
-          avatar_url: mockUser.avatar_url,
           ...mockUser,
         },
         app_metadata: {},
         aud: "authenticated",
         created_at: new Date().toISOString(),
-      } as unknown as User;
+      } as unknown as User)
+    : null;
 
-      // Simulate loading delay for realism
-      const timer = setTimeout(() => {
-        setUser(formattedUser);
-        setLoading(false);
-      }, 500);
+  // Mock session info
+  const sessionInfo = {
+    valid: !!user,
+    expiresAt: user ? new Date(Date.now() + 3600 * 1000) : null, // 1 hour from now
+    timeRemaining: user ? 3600 * 1000 : 0, // 1 hour in milliseconds
+    issuedAt: user ? new Date() : null,
+  };
 
-      return () => clearTimeout(timer);
-    } else {
-      // If no mock user, just set loading to false after a delay
-      const timer = setTimeout(() => {
-        setLoading(false);
-      }, 500);
-
-      return () => clearTimeout(timer);
-    }
-  }, [mockUser]);
-
-  // Mock auth methods
-  const mockAuthMethods: MockAuthContextType = {
+  // Mock auth context value
+  const mockAuthValue: MockAuthContextType = {
     user,
-    loading,
+    loading: mockLoading,
     authError: null,
     sessionValid: !!user,
-    sessionInfo: {
-      valid: !!user,
-      expiresAt: user ? new Date(Date.now() + 3600 * 1000) : null, // 1 hour from now
-      timeRemaining: user ? 3600 * 1000 : 0, // 1 hour in ms
-      issuedAt: user ? new Date() : null,
-    },
-    signIn: async () => ({ data: { user }, error: null }),
-    signUp: async () => ({ data: { user }, error: null }),
-    signOut: async () => {
-      setUser(null);
-      return { error: null };
-    },
+    sessionInfo,
+    signIn: async () => ({ data: null, error: null }),
+    signUp: async () => ({ data: null, error: null }),
+    signOut: async () => ({ error: null }),
     signOutAllDevices: async () => ({ error: null }),
-    resetPassword: async () => ({ data: {}, error: null }),
-    updatePassword: async () => ({ data: {}, error: null }),
-    updateProfile: async (profile) => {
-      if (user) {
-        const updatedUser = {
-          ...user,
-          user_metadata: {
-            ...user.user_metadata,
-            full_name: profile.fullName || user.user_metadata?.full_name,
-            avatar_url: profile.avatarUrl || user.user_metadata?.avatar_url,
-          },
-        } as User;
-        setUser(updatedUser);
-      }
-      return { data: { user }, error: null };
-    },
-    getUserRole: () => user?.user_metadata?.role || null,
-    hasPermission: () => true, // Always return true for mock
+    resetPassword: async () => ({ data: null, error: null }),
+    updatePassword: async () => ({ data: null, error: null }),
+    updateProfile: async () => ({ data: null, error: null }),
+    getUserRole: () => (user ? user.user_metadata?.role || ROLES.USER : null),
+    hasPermission: () => true, // Always return true in mock
     refreshSession: async () => true,
-    getSessionTimeRemaining: () => "1h 0m",
+    getSessionTimeRemaining: () => "1 hour",
     revokeSession: async () => true,
     getAllSessions: async () => [],
+    sessionTimeoutWarning: {
+      visible: false,
+      threshold: 5 * 60 * 1000, // 5 minutes
+    },
+    extendSession: async () => true,
+    configureSessionTimeout: () => {},
   };
 
   return (
-    <MockAuthContext.Provider value={mockAuthMethods}>
+    <MockAuthContext.Provider value={mockAuthValue}>
       {children}
     </MockAuthContext.Provider>
   );
 }
 
-// Hook to use mock auth context
-export const useMockAuth = () => {
+// Hook to use the mock auth context
+function useMockAuth() {
   const context = useContext(MockAuthContext);
   if (context === undefined) {
     throw new Error("useMockAuth must be used within a MockAuthProvider");
   }
   return context;
-};
+}
 
-/**
- * A wrapper component that provides AuthProvider context for storyboards
- * This allows components in storyboards to use the useAuth hook
- *
- * Usage:
- * ```tsx
- * <StoryboardAuthWrapper>
- *   <YourComponent />
- * </StoryboardAuthWrapper>
- * ```
- *
- * With mock data:
- * ```tsx
- * <StoryboardAuthWrapper
- *   mockUser={{ id: "123", email: "test@example.com", role: "admin" }}
- * >
- *   <YourComponent />
- * </StoryboardAuthWrapper>
- * ```
- *
- * With mock auth context:
- * ```tsx
- * <StoryboardAuthWrapper
- *   mockUser={{ id: "123", email: "test@example.com", role: "admin" }}
- *   useMockAuth={true}
- * >
- *   <YourComponent />
- * </StoryboardAuthWrapper>
- * ```
- */
-export function StoryboardAuthWrapper({
+// StoryboardAuthWrapper component
+function StoryboardAuthWrapper({
   children,
   mockUser,
-  mockLoading = false,
+  mockLoading,
   useMockAuth = false,
 }: StoryboardAuthWrapperProps) {
-  // Determine which auth provider to use
-  const AuthComponent = useMockAuth ? MockAuthProvider : AuthProvider;
-  const mockProps = useMockAuth ? { mockUser, mockLoading } : {};
-
-  return (
-    <div className="storyboard-auth-wrapper">
-      <AuthComponent {...mockProps}>{children}</AuthComponent>
-
-      {/* Enhanced indicator with more information */}
-      <div className="fixed bottom-2 right-2 flex flex-col gap-1 items-end">
-        <Badge
-          variant="outline"
-          className="bg-slate-800 text-white hover:bg-slate-700 transition-colors"
-        >
-          StoryboardAuthWrapper Active
-        </Badge>
-
+  // If useMockAuth is true, use the mock auth provider
+  if (useMockAuth) {
+    return (
+      <div className="relative">
         {mockUser && (
-          <Badge
-            variant="outline"
-            className="bg-teal-700 text-white hover:bg-teal-600 transition-colors"
-          >
-            Mock User: {mockUser.email}
-          </Badge>
+          <div className="absolute top-2 right-2 z-50">
+            <Badge variant="outline" className="bg-amber-100 text-amber-800">
+              Mock User: {mockUser.email}
+              {mockUser.role && ` (${mockUser.role})`}
+            </Badge>
+          </div>
         )}
-
-        {mockLoading && (
-          <Badge
-            variant="outline"
-            className="bg-amber-600 text-white hover:bg-amber-500 transition-colors"
-          >
-            Mock Loading State
-          </Badge>
-        )}
-
-        {useMockAuth && (
-          <Badge
-            variant="outline"
-            className="bg-purple-700 text-white hover:bg-purple-600 transition-colors"
-          >
-            Using Mock Auth Context
-          </Badge>
-        )}
+        <MockAuthProvider mockUser={mockUser} mockLoading={mockLoading}>
+          {children}
+        </MockAuthProvider>
       </div>
-    </div>
-  );
+    );
+  }
+
+  // Otherwise, use the real auth provider
+  return <AuthProvider>{children}</AuthProvider>;
 }
 
 export default StoryboardAuthWrapper;

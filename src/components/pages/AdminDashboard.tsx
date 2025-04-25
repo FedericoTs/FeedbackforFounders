@@ -4,8 +4,9 @@ import UserManagement from "../admin/UserManagement";
 import RoleAssignment from "../admin/RoleAssignment";
 import PermissionsManager from "../admin/PermissionsManager";
 import PermissionGate from "../auth/PermissionGate";
+import withAuth from "../../lib/withAuth";
 
-export default function AdminDashboard() {
+function AdminDashboard() {
   return (
     <PermissionGate
       permission="manage_users"
@@ -105,3 +106,5 @@ export default function AdminDashboard() {
     </PermissionGate>
   );
 }
+
+export default withAuth(AdminDashboard);

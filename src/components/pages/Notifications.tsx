@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useAuth } from "../../../supabase/auth";
+import { useAuth } from "@/supabase/auth";
 import {
   Notification,
   NotificationType,
@@ -640,4 +640,6 @@ const NotificationsPage: React.FC = () => {
   );
 };
 
-export default NotificationsPage;
+import withAuth from "@/lib/withAuth";
+
+export default withAuth(NotificationsPage);
