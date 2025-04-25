@@ -506,6 +506,4 @@ const ProjectDiscovery = () => {
   );
 };
 
-import withAuth from "@/lib/withAuth";
-
-export default withAuth(ProjectDiscovery);
+export default ProjectDiscovery;

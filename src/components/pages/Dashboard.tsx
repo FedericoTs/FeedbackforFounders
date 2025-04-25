@@ -7,8 +7,6 @@ import UserProfile from "../dashboard/UserProfile";
 import LoginStreakDisplay from "../dashboard/LoginStreakDisplay";
 import RewardsPanel from "../dashboard/RewardsPanel";
 
-import withAuth from "@/lib/withAuth";
-
 function Dashboard() {
   return (
     <div className="container mx-auto py-6 px-4">
@@ -51,4 +49,4 @@ function Dashboard() {
   );
 }
 
-export default withAuth(Dashboard);
+export default Dashboard;

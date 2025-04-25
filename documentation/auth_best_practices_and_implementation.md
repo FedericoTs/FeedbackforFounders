@@ -7,6 +7,7 @@
 3. [Implementation Analysis](#implementation-analysis)
 4. [Implementation Plan](#implementation-plan)
 5. [Task Manager](#task-manager)
+6. [Avoiding Nested AuthProvider Issues](#avoiding-nested-authprovider-issues)
 
 ## Best Practices for Using useAuth
 
@@ -304,275 +305,95 @@ vi.mock("../supabase/auth", () => ({
    - Loading state handling varies across components
    - Some components may not show appropriate loading indicators
 
--Order Component for Auth**
-   - Develop a `withAuth` HOC for easier wrapping of components
-   - Update documentation with usage examples
+## Avoiding Nested AuthProvider Issues
 
-### Phase 2: Enhance Token Management
+### Understanding the Problem
 
-1. **Implement Secure Token Storage**
-   - Move from localStorage to more secure alternatives where appropriate
-   - Implement encryption for sensitive token data
+Nested AuthProvider instances occur when a component that is already wrapped by the main AuthProvider in App.tsx is also wrapped with the withAuth HOC. This creates multiple instances of the AuthContext, leading to:
 
-2. **Enhance Token Refresh Mechanism**
-   - Implement automatic token refresh before expiration
-   - Handle refresh token errors gracefully
+- Context conflicts
+- Unpredictable authentication state
+- "useAuth must be used within an AuthProvider" errors
+- Infinite redirects or authentication loops
 
-3. **Add Token Revocation**
-   - Implement functionality to revoke tokens on suspicious activity
-   - Add ability to sign out from all devices
+### Dashboard Pages and Authentication
 
-### Phase 3: Improve Error Handling and Loading States
+All pages under the `/dashboard/*` route are already wrapped by the main AuthProvider in App.tsx. This includes:
 
-1. **Standardize Error Handling**
-   - Create consistent error handling patterns
-   - Implement error boundary for authentication failures
+- `/dashboard/profile` (Profile.tsx)
+- `/dashboard/projects` (Projects.tsx)
+- `/dashboard/feedback-analytics` (FeedbackAnalytics.tsx)
+- `/dashboard/admin` (AdminDashboard.tsx)
+- `/dashboard/notifications` (Notifications.tsx)
+- `/dashboard/project-discovery` (ProjectDiscovery.tsx)
+- `/dashboard/feedback/:id` (FeedbackInterface.tsx)
 
-2. **Enhance Loading State Management**
-   - Create standardized loading indicators
-   - Implement skeleton loaders for authentication-dependent UI
+### Correct Implementation for Dashboard Pages
 
-3. **Add Retry Mechanisms**
-   - Implement automatic retry for transient authentication errors
-   - Add exponential backoff for repeated failures
+```tsx
+// CORRECT: Dashboard page using useAuth directly
+import { useAuth } from "@/supabase/auth";
 
-### Phase 4: Enhance Security Features
+function DashboardPage() {
+  const { user } = useAuth();
+  // Component logic
+  return <div>Dashboard content</div>;
+}
 
-1. **Integrate Rate Limiting**
-   - Fully integrate rate limiting with authentication attempts
-   - Implement account lockout after multiple failed attempts
+export default DashboardPage; // NO withAuth wrapper!
+```
 
-2. **Add Session Management**
-   - Implement session timeout with warnings
-   - Add ability to view and manage active sessions
+### Incorrect Implementation (Causes Nested AuthProvider)
 
-3. **Implement 2FA Support**
-   - Add two-factor authentication support
-   - Integrate with existing authentication flow
+```tsx
+// INCORRECT: Creates nested AuthProvider
+import { useAuth } from "@/supabase/auth";
+import withAuth from "@/lib/withAuth";
 
-### Phase 5: Testing and Documentation
+function DashboardPage() {
+  const { user } = useAuth();
+  // Component logic
+  return <div>Dashboard content</div>;
+}
 
-1. **Expand Test Coverage**
-   - Add tests for edge cases and error scenarios
-   - Implement integration tests for authentication flow
+export default withAuth(DashboardPage); // DON'T DO THIS for dashboard pages!
+```
 
-2. **Update Documentation**
-   - Update authentication documentation with new features
-   - Create examples for common authentication scenarios
+### When to Use withAuth
 
-3. **Create Developer Guidelines**
-   - Document best practices for authentication
-   - Create templates for new authentication-dependent components
+Only use the withAuth HOC for components that are:
 
-## Task Manager
+1. Used outside the main application flow
+2. Not already descendants of an AuthProvider
+3. Need authentication context but aren't part of the protected routes
 
-### Phase 1: Fix AuthProvider Wrapping Issues
+Examples:
+- Standalone components used in multiple contexts
+- Components rendered in modals or portals that might break context inheritance
+- Test components that need authentication simulation
 
-| Task ID | Description | Dependencies | Estimated Effort | Status |
-|---------|-------------|--------------|------------------|--------|
-| 1.1 | Audit all components using useAuth | None | Medium | Completed |
-| 1.2 | Fix StoryboardAuthWrapper implementation | 1.1 | Low | Completed |
-| 1.3 | Create withAuth HOC | 1.1 | Medium | Completed |
-| 1.4 | Update documentation with HOC usage | 1.3 | Low | Completed |
-| 1.5 | Test all fixed components | 1.2, 1.3 | Medium | Completed |
+### Checking for Nested AuthProvider
 
-### Phase 2: Enhance Token Management
+To check if a component might have nested AuthProvider issues:
 
-| Task ID | Description | Dependencies | Estimated Effort | Status |
-|---------|-------------|--------------|------------------|--------|
-| 2.1 | Implement secure token storage | None | Medium | Completed |
-| 2.2 | Enhance token refresh mechanism | 2.1 | Medium | Completed |
-| 2.3 | Add token revocation functionality | 2.1, 2.2 | Medium | Completed |
-| 2.4 | Test token management features | 2.1, 2.2, 2.3 | Medium | Completed |
+1. Trace the component's rendering path to see if it's under a route protected by PrivateRoute
+2. Check if the component is exported with withAuth HOC
+3. Look for "useAuth must be used within an AuthProvider" errors in the console
+4. Check for unexpected authentication behavior (like being unable to access user data)
 
-### Phase 3: Improve Error Handling and Loading States
+### Fixing Nested AuthProvider Issues
 
-| Task ID | Description | Dependencies | Estimated Effort | Status |
-|---------|-------------|--------------|------------------|--------|
-| 3.1 | Create standardized error handling | None | Medium | Not Started |
-| 3.2 | Implement error boundary for auth | 3.1 | Low | Not Started |
-| 3.3 | Create standardized loading indicators | None | Low | Not Started |
-| 3.4 | Implement skeleton loaders | 3.3 | Medium | Not Started |
-| 3.5 | Add retry mechanisms | 3.1 | Medium | Not Started |
-| 3.6 | Test error handling and loading states | 3.1, 3.2, 3.3, 3.4, 3.5 | Medium | Not Started |
+If you encounter nested AuthProvider issues:
 
-### Phase 4: Enhance Security Features
+1. Remove the withAuth HOC from any component that's already under a protected route
+2. Use absolute imports for auth-related modules (`@/supabase/auth` instead of relative paths)
+3. Ensure StoryboardAuthWrapper is used for storyboards instead of withAuth
+4. Update any tests that might be creating nested providers
 
-| Task ID | Description | Dependencies | Estimated Effort | Status |
-|---------|-------------|--------------|------------------|--------|
-| 4.1 | Integrate rate limiting with auth | None | Medium | Not Started |
-|
-| 4.3 | Add session timeout with warnings | None | Medium | Not Started |
-| 4.4 | Create session management UI | 4.3 | High | Completed |
-| 4.5 | Implement 2FA support | None | High | Not Started |
-| 4.6 | Test security features | 4.1, 4.2, 4.3, 4.4, 4.5 | High | Not Started |
+### Best Practices Summary
 
-### Phase 5: Testing and Documentation
-
-| Task ID | Description | Dependencies | Estimated Effort | Status |
-|---------|-------------|--------------|------------------|--------|
-| 5.1 | Expand test coverage | All previous phases | High | Not Started |
-| 5.2 | Update authentication documentation | All previous phases | Medium | Not Started |
-| 5.3 | Create developer guidelines | 5.2 | Medium | Not Started |
-| 5.4 | Create templates for auth components | 5.3 | Low | Not Started |
-| 5.5 | Final review and sign-off | All tasks | Low | Not Started |
-
-## Implementation Progress
-
-### Completed Tasks
-
-#### Phase 1: Fix AuthProvider Wrapping Issues
-- ✅ Task 1.1: Audit all components using useAuth
-- ✅ Task 1.2: Fix StoryboardAuthWrapper implementation
-  - Enhanced with mock auth support
-  - Added visual indicators for auth wrapper state
-  - Added support for mock user data and loading states
-- ✅ Task 1.3: Create withAuth HOC
-- ✅ Task 1.4: Update documentation with HOC usage
-- ✅ Task 1.5: Test all fixed components
-  - Created three new storyboards to demonstrate different aspects of authentication
-  - Verified all storyboards are properly wrapped with StoryboardAuthWrapper
-
-#### Phase 2: Enhance Token Management
-- ✅ Task 2.1: Implement secure token storage
-  - Implemented AES-GCM encryption for tokens
-  - Added device fingerprinting for key derivation
-  - Implemented PBKDF2 key derivation for stronger security
-  - Added token integrity verification with SHA-256
-- ✅ Task 2.2: Enhance token refresh mechanism
-  - Implemented automatic token refresh before expiration
-  - Added handling for refresh token errors with retry logic
-  - Implemented refresh token rotation for enhanced security
-  - Added exponential backoff with jitter for retry attempts
-  - Implemented dynamic refresh buffer based on token lifetime
-  - Added refresh metrics tracking for monitoring and debugging
-  - Created TokenRefreshMechanismStoryboard for testing
-  - Enhanced AuthProvider with improved session monitoring
-  - Added visibility change detection to refresh tokens when tab becomes active
-  - Added network reconnection detection to refresh tokens when device comes online
-  - Implemented adaptive check frequency based on token expiration time
-  - Added consecutive failures tracking for better retry handling
-  - Implemented network status detection for offline/online handling
-  - Created comprehensive demo UI for token refresh visualization
-- ✅ Task 2.3: Add token revocation functionality
-  - Implemented ability to sign out from all devices
-  - Added session management UI for viewing and terminating sessions
-  - Added ability to revoke specific tokens
-  - Created SessionRevocationStoryboard for testing token revocation
-
-#### Phase 3: Improve Error Handling and Loading States
-- ✅ Task 3.2: Implement error boundary for auth
-  - ✅ Created AuthErrorBoundary component
-  - ✅ Integrated with standardized error handling
-  - ✅ Added retry functionality
-  - ✅ Updated EnhancedLoginForm to use new error handling
-  - ✅ Verified proper implementation in authentication flow
-- ✅ Task 3.3: Create standardized loading indicators
-  - ✅ Created AuthLoading component with multiple variants (spinner, dots, pulse)
-  - ✅ Added size options (xs, sm, md, lg)
-  - ✅ Added variant options (default, primary, secondary, ghost)
-  - ✅ Added full page overlay option
-  - ✅ Added text option for loading indicators
-  - ✅ Created ButtonLoading component for use in buttons
-  - ✅ Integrated loading indicators into authentication flow
-  - ✅ Created LoadingIndicatorsStoryboard to showcase all loading options
-  - ✅ Verified proper implementation in authentication flow
-- ✅ Task 3.4: Implement skeleton loaders
-  - ✅ Created AuthSkeleton component with various configurations
-  - ✅ Added options for avatar, card, form, and multiple items
-  - ✅ Integrated skeleton loaders into authentication flow
-  - ✅ Created AuthLoadingStatesStoryboard to showcase skeleton loaders in auth context
-  - ✅ Verified proper implementation in authentication flow
-
-#### Phase 4: Enhance Security Features (Partial)
-- Task 4.4: Create session management UI
-  - Implemented session management component
-  - Added ability to view and manage active sessions
-  - Added ability to sign out from specific devices or all devices
-
-### Next Steps
-
-#### Phase 4: Enhance Security Features
-- ✅ Task 4.1: Integrate rate limiting with auth
-  - ✅ Enhanced EnhancedLoginForm with rate limiting checks
-  - ✅ Updated AuthProvider's signIn method to handle rate limiting
-  - ✅ Created RateLimitAlert component for user feedback
-  - ✅ Created RateLimitDemoStoryboard for testing and demonstration
-  - ✅ Integrated rate limiting with authentication flow
-  - ✅ Added user feedback for rate limited accounts
-  - ✅ Implemented automatic reset of rate limiting on successful login
-  - ✅ Added countdown timer for rate limited accounts
-  - ✅ Implemented progressive rate limiting with increasing lockout periods
-  - ✅ Added security considerations documentation
-
-- 🔄 Task 4.2: Implement account lockout
-  - 🔄 Extend rate limiting to implement full account lockout
-  - 🔄 Add admin interface for managing locked accounts
-  - 🔄 Implement notification system for locked accounts
-
-- 🔄 Task 4.3: Add session timeout with warnings
-  - 🔄 Implement session timeout detection
-  - 🔄 Add warning notifications before session expires
-  - 🔄 Create session extension mechanism
-
-#### Phase 3: Improve Error Handling and Loading States
-- ✅ Task 3.1: Create standardized error handling
-  - ✅ Created errorHandler.ts with comprehensive error handling system
-  - ✅ Enhanced formatAuthError function with more error types
-  - ✅ Created standardized error object structure
-  - ✅ Implemented error categorization and severity levels
-  - ✅ Added user-friendly error messages and suggested actions
-  - ✅ Created AuthError component for displaying errors
-- ✅ Task 3.2: Implement error boundary for auth
-  - ✅ Created AuthErrorBoundary component
-  - ✅ Integrated with standardized error handling
-  - ✅ Added retry functionality
-  - ✅ Updated EnhancedLoginForm to use new error handling
-  - ✅ Verified proper implementation in authentication flow
-- ✅ Task 3.3: Create standardized loading indicators
-  - ✅ Created AuthLoading component with multiple variants (spinner, dots, pulse)
-  - ✅ Added size options (xs, sm, md, lg)
-  - ✅ Added variant options (default, primary, secondary, ghost)
-  - ✅ Added full page overlay option
-  - ✅ Added text option for loading indicators
-  - ✅ Created ButtonLoading component for use in buttons
-  - ✅ Integrated loading indicators into authentication flow
-  - ✅ Created LoadingIndicatorsStoryboard to showcase all loading options
-  - ✅ Verified proper implementation in authentication flow
-- ✅ Task 3.4: Implement skeleton loaders
-  - ✅ Created AuthSkeleton component with various configurations
-  - ✅ Added options for avatar, card, form, and multiple items
-  - ✅ Integrated skeleton loaders into authentication flow
-  - ✅ Created AuthLoadingStatesStoryboard to showcase skeleton loaders in auth context
-  - ✅ Verified proper implementation in authentication flow
-- ✅ Task 3.5: Add retry mechanisms
-  - ✅ Enhanced withRetry function with improved error handling
-  - ✅ Created specialized withAuthRetry function for authentication operations
-  - ✅ Implemented rate limiting protection with cooldown periods
-  - ✅ Added failure tracking system for consecutive failures
-  - ✅ Created AuthRetryIndicator component for UI feedback
-  - ✅ Integrated retry mechanisms with authentication operations
-  - ✅ Created ErrorHandlingDemoStoryboard for testing and demonstration
-- 🔄 Task 3.6: Test error handling and loading states
-  - ✅ Created ErrorHandlingDemoStoryboard for testing error handling components
-  - ✅ Created LoadingIndicatorsStoryboard for testing loading indicators
-  - ✅ Created AuthLoadingStatesStoryboard for testing skeleton loaders
-  - ✅ Integrate AuthError component with EnhancedLoginForm
-  - ✅ Integrate AuthRetryIndicator with authentication flows
-  - ✅ Created AuthRetryDemoStoryboard for testing retry mechanisms
-  - 🔄 Test error handling in real authentication scenarios
-  - 🔄 Create comprehensive test cases for different error types
-  - 🔄 Verify proper error categorization and handling
-  - 🔄 Test retry mechanisms with simulated network failures
-
-#### Phase 4: Enhance Security Features (Remaining)
-- Task 4.1: Integrate rate limiting with auth
-- Task 4.2: Implement account lockout
-- Task 4.3: Add session timeout with warnings
-- Task 4.5: Implement 2FA support
-- Task 4.6: Test security features
-
-### Next: Continue Phase 5: Testing and Documentation
-- Task 5.1: Expand test coverage
-- Task 5.2: Update authentication documentation
-- Task 5.3: Create developer guidelines
+1. **DO** use the useAuth hook directly in dashboard pages
+2. **DON'T** wrap dashboard pages with withAuth HOC
+3. **DO** use absolute imports for auth modules
+4. **DO** use StoryboardAuthWrapper for storyboards
+5. **DON'T** create custom auth wrappers when standard utilities are available

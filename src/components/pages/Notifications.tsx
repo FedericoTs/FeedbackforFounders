@@ -640,6 +640,4 @@ const NotificationsPage: React.FC = () => {
   );
 };
 
-import withAuth from "@/lib/withAuth";
-
-export default withAuth(NotificationsPage);
+export default NotificationsPage;

@@ -17,7 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
-import { useAuth } from "../../../supabase/auth";
+import { useAuth } from "@/supabase/auth";
 import {
   profileService,
   ProfileResponse,
@@ -1493,4 +1493,4 @@ const Profile = () => {
   );
 };
 
-export default withAuth(Profile);
+export default Profile;

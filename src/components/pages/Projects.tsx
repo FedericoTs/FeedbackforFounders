@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { useAuth } from "../../../supabase/auth";
-import { supabase } from "../../../supabase/supabase";
+import { useAuth } from "@/supabase/auth";
+import { supabase } from "@/supabase/supabase";
 import { projectService } from "@/services/project";
 import {
   Card,

@@ -16,6 +16,18 @@ This document outlines the fixes implemented to address authentication-related i
    - Ensured all dashboard pages are properly wrapped with the `withAuth` HOC.
    - Verified that all storyboard components using `useAuth` are properly wrapped with `StoryboardAuthWrapper`.
 
+4. **Nested AuthProvider Issues**
+   - Removed redundant `withAuth` HOC from dashboard pages that were already wrapped by the main `AuthProvider` in App.tsx.
+   - Fixed import paths to use absolute imports (`@/supabase/auth`) instead of relative imports.
+   - Updated the following pages to prevent nested AuthProvider issues:
+     - `/dashboard/profile` (Profile.tsx)
+     - `/dashboard/projects` (Projects.tsx)
+     - `/dashboard/feedback-analytics` (FeedbackAnalytics.tsx)
+     - `/dashboard/admin` (AdminDashboard.tsx)
+     - `/dashboard/notifications` (Notifications.tsx)
+     - `/dashboard/project-discovery` (ProjectDiscovery.tsx)
+     - `/dashboard/feedback/:id` (FeedbackInterface.tsx)
+
 ## Implementation Details
 
 ### 1. StoryboardAuthWrapper Fix
@@ -54,20 +66,39 @@ The `App.tsx` file had a syntax error with a missing closing bracket in the `Sus
 
 ### 3. Dashboard Pages Fix
 
-All dashboard pages were verified to be properly wrapped with the `withAuth` HOC to ensure they have access to the authentication context.
+Dashboard pages were using the `withAuth` HOC unnecessarily, creating nested AuthProvider instances. This was fixed by removing the `withAuth` HOC from these components since they are already wrapped by the main `AuthProvider` in App.tsx.
 
 ```tsx
+// Before
 import withAuth from "@/lib/withAuth";
 
 function DashboardPage() { ... }
 
 export default withAuth(DashboardPage);
+
+// After
+function DashboardPage() { ... }
+
+export default DashboardPage;
+```
+
+### 4. Import Path Fixes
+
+Relative import paths for auth-related modules were replaced with absolute imports to maintain consistency and prevent potential issues.
+
+```tsx
+// Before
+import { useAuth } from "../../../supabase/auth";
+
+// After
+import { useAuth } from "@/supabase/auth";
 ```
 
 ## Best Practices
 
 1. **Using useAuth**
    - Always ensure components using `useAuth` are descendants of an `AuthProvider`.
+   - For dashboard pages, use the `useAuth` hook directly without wrapping the component with `withAuth`.
    - For isolated components, use the `withAuth` HOC to wrap them with `AuthProvider`.
 
 2. **Storyboard Components**
@@ -77,7 +108,23 @@ export default withAuth(DashboardPage);
 3. **Export/Import Consistency**
    - Be consistent with exports. If a component is exported as default, import it as default.
    - Avoid duplicate exports of the same component.
+   - Use absolute imports for auth-related modules.
+
+4. **Preventing Nested AuthProvider Issues**
+   - Do not use `withAuth` HOC on components that are already rendered within routes protected by `PrivateRoute`.
+   - Check the component hierarchy before adding authentication to ensure you're not creating nested providers.
+   - Use the authentication component map in `auth_best_practices_and_implementation.md` to determine which components are already wrapped by `AuthProvider`.
 
 ## Verification
 
 All components using `useAuth` have been verified to be properly wrapped with either `AuthProvider`, `withAuth`, or `StoryboardAuthWrapper`. The application now loads without authentication-related errors.
+
+## Future Development Guidelines
+
+When adding new components that need authentication:
+
+1. Determine if the component will be rendered within the main application flow (under protected routes).
+2. If yes, use the `useAuth` hook directly and avoid `withAuth`.
+3. If no (standalone component), use `withAuth`.
+4. For storyboards, use `StoryboardAuthWrapper`.
+5. Update the authentication component map in the documentation to reflect any changes to the authentication architecture.

@@ -154,7 +154,7 @@ function useMockAuth() {
 }
 
 // StoryboardAuthWrapper component
-function StoryboardAuthWrapper({
+export function StoryboardAuthWrapper({
   children,
   mockUser,
   mockLoading,

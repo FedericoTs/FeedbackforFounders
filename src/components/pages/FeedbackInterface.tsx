@@ -999,6 +999,4 @@ const FeedbackInterface = () => {
   );
 };
 
-import withAuth from "@/lib/withAuth";
-
-export default withAuth(FeedbackInterface);
+export default FeedbackInterface;
