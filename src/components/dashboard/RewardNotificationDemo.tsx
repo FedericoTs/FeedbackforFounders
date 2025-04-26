@@ -23,7 +23,7 @@ import { Slider } from "@/components/ui/slider";
 import { Award, Star, Zap, Trophy, MessageSquare, Volume2 } from "lucide-react";
 import RewardHistoryPanel from "./RewardHistoryPanel";
 
-const RewardNotificationDemo: React.FC = () => {
+export const RewardNotificationDemo: React.FC = () => {
   const { showAwardToast, clearToasts } = useAwardToast();
   const [title, setTitle] = useState("Points Awarded!");
   const [description, setDescription] = useState(

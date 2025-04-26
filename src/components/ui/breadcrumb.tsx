@@ -105,10 +105,26 @@ const BreadcrumbHome = React.forwardRef<HTMLAnchorElement, BreadcrumbHomeProps>(
 );
 BreadcrumbHome.displayName = "BreadcrumbHome";
 
+export interface BreadcrumbEllipsisProps
+  extends React.HTMLAttributes<HTMLSpanElement> {}
+
+const BreadcrumbEllipsis = React.forwardRef<
+  HTMLSpanElement,
+  BreadcrumbEllipsisProps
+>(({ className, ...props }, ref) => {
+  return (
+    <span ref={ref} className={cn("mx-1 text-gray-400", className)} {...props}>
+      ...
+    </span>
+  );
+});
+BreadcrumbEllipsis.displayName = "BreadcrumbEllipsis";
+
 export {
   Breadcrumb,
   BreadcrumbItem,
   BreadcrumbLink,
   BreadcrumbSeparator,
   BreadcrumbHome,
+  BreadcrumbEllipsis,
 };

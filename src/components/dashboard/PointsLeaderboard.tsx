@@ -247,4 +247,5 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
   );
 };
 
+export { PointsLeaderboard };
 export default PointsLeaderboard;

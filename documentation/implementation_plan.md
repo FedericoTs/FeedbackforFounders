@@ -69,6 +69,8 @@ The current user journey involves:
 3. Add visual indicators for active items.
 4. Implement collapsible sections for better organization.
 5. Add tooltips for navigation items when the sidebar is collapsed.
+6. Add a toggle button to collapse/expand the entire sidebar.
+7. Ensure the sidebar is responsive and works well on smaller screens.
 
 **Optimized Prompt**:
 
