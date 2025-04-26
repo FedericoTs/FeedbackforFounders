@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
-import { Bell, Home, Search, Settings, User } from "lucide-react";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Bell, Search, User, Settings, LogOut, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -10,151 +11,121 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useAuth } from "../../../supabase/auth";
-import { Link } from "react-router-dom";
+import { useAuth } from "@/supabase/auth";
+import NotificationsPopover from "../NotificationsPopover";
 
 interface TopNavigationProps {
-  onSearch?: (query: string) => void;
-  searchValue?: string;
-  notifications?: Array<{ id: string; title: string }>;
   onMenuClick?: () => void;
   isMobileView?: boolean;
+  onSearch?: (query: string) => void;
+  searchValue?: string;
 }
 
-const TopNavigation = ({
-  onSearch = () => {},
-  searchValue = "",
-  notifications = [
-    { id: "1", title: "New project assigned" },
-    { id: "2", title: "Meeting reminder" },
-  ],
+const TopNavigation: React.FC<TopNavigationProps> = ({
   onMenuClick,
-  isMobileView,
-}: TopNavigationProps) => {
+  isMobileView = false,
+  onSearch,
+  searchValue = "",
+}) => {
   const { user, signOut } = useAuth();
-  const [inputValue, setInputValue] = useState(searchValue);
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState(searchValue);
 
-  // Update input value when searchValue prop changes
-  useEffect(() => {
-    setInputValue(searchValue);
-  }, [searchValue]);
-
-  // Handle input change
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    setInputValue(value);
-    onSearch(value);
+    setSearchQuery(value);
+    if (onSearch) {
+      onSearch(value);
+    }
   };
 
-  if (!user) return null;
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (onSearch) {
+      onSearch(searchQuery);
+    }
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/login");
+  };
 
   return (
-    <div className="w-full h-16 border-b border-gray-200 bg-white flex items-center justify-between px-4 fixed top-0 z-50">
-      <div className="flex items-center gap-4 flex-1">
-        <Link to="/" className="flex items-center">
-          <Home className="h-5 w-5 text-gray-700" />
-        </Link>
-        <div className="relative w-64">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
-          <Input
-            placeholder="Search projects..."
-            className="pl-8 h-9 text-sm border-gray-200 focus:border-gray-300"
-            value={inputValue}
-            onChange={handleInputChange}
-          />
+    <header className="fixed top-0 left-0 right-0 h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 z-30 px-4 sm:px-6">
+      <div className="flex items-center justify-between h-full">
+        {/* Left section - Mobile menu button (only on mobile) */}
+        {isMobileView && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden"
+            onClick={onMenuClick}
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+        )}
+
+        {/* Middle section - Search */}
+        <div className="flex-1 max-w-2xl mx-auto">
+          <form onSubmit={handleSearchSubmit} className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
+            <Input
+              type="search"
+              placeholder="Search..."
+              className="w-full pl-9 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+              value={searchQuery}
+              onChange={handleSearchChange}
+            />
+          </form>
+        </div>
+
+        {/* Right section - User menu and notifications */}
+        <div className="flex items-center ml-4 space-x-4">
+          <NotificationsPopover />
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-full h-8 w-8 overflow-hidden"
+              >
+                <Avatar className="h-8 w-8">
+                  <AvatarImage
+                    src={user?.user_metadata?.avatar_url}
+                    alt={user?.user_metadata?.name || "User"}
+                  />
+                  <AvatarFallback>
+                    {(user?.user_metadata?.name || "U").charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>
+                {user?.user_metadata?.name || "User"}
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate("/dashboard/profile")}>
+                <User className="mr-2 h-4 w-4" />
+                Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/dashboard/settings")}>
+                <Settings className="mr-2 h-4 w-4" />
+                Settings
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleSignOut}>
+                <LogOut className="mr-2 h-4 w-4" />
+                Log out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
-
-      <div className="flex items-center gap-2">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="relative text-gray-700"
-                  >
-                    <Bell className="h-5 w-5" />
-                    {notifications.length > 0 && (
-                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
-                        {notifications.length}
-                      </span>
-                    )}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-64">
-                  <DropdownMenuLabel>Notifications</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {notifications.map((notification) => (
-                    <DropdownMenuItem key={notification.id} className="py-2">
-                      {notification.title}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Notifications</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-gray-700">
-                <Settings className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Settings</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="gap-2 text-gray-700">
-              <Avatar className="h-8 w-8">
-                <AvatarImage
-                  src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.email}`}
-                  alt={user.email || ""}
-                />
-                <AvatarFallback>{user.email?.[0].toUpperCase()}</AvatarFallback>
-              </Avatar>
-              <span className="hidden md:inline-block text-sm">
-                {user.email}
-              </span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>My Account</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="py-2">
-              <User className="mr-2 h-4 w-4" />
-              Profile
-            </DropdownMenuItem>
-            <DropdownMenuItem className="py-2">
-              <Settings className="mr-2 h-4 w-4" />
-              Settings
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => signOut()} className="py-2">
-              Log out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </div>
+    </header>
   );
 };
 

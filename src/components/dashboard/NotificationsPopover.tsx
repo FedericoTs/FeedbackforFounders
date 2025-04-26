@@ -19,7 +19,7 @@ import {
   NotificationType,
   notificationsService,
 } from "@/services/notifications";
-import { useAuth } from "../../../supabase/auth";
+import { useAuth } from "@/supabase/auth";
 
 interface NotificationsPopoverProps {
   className?: string;

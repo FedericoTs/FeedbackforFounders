@@ -1,13 +1,28 @@
-import React from "react";
-import { DashboardWidgetGrid } from "../dashboard/widgets";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
-import ActivityFeed from "../dashboard/ActivityFeed";
-import QuickActions from "../dashboard/QuickActions";
-import UserProfile from "../dashboard/UserProfile";
-import LoginStreakDisplay from "../dashboard/LoginStreakDisplay";
-import RewardsPanel from "../dashboard/RewardsPanel";
+import React, { useState, useEffect } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ActivityFeed from "@/components/dashboard/ActivityFeed";
+import QuickActions from "@/components/dashboard/QuickActions";
+import UserProfile from "@/components/dashboard/UserProfile";
+import LoginStreakDisplay from "@/components/dashboard/LoginStreakDisplay";
+import RewardsPanel from "@/components/dashboard/RewardsPanel";
+import DashboardWidgetGrid from "@/components/dashboard/DashboardWidgetGrid";
 
 function Dashboard() {
+  // Initialize widgets with an empty array to prevent undefined errors
+  const [widgets, setWidgets] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Mock recent projects and feedback for QuickActions
+  const recentProjects = [
+    { id: "1", title: "Project Alpha" },
+    { id: "2", title: "Project Beta" },
+  ];
+
+  const recentFeedback = [
+    { id: "1", title: "Feedback on UI design" },
+    { id: "2", title: "Performance suggestions" },
+  ];
+
   return (
     <div className="container mx-auto py-6 px-4">
       <div className="flex flex-col md:flex-row gap-6 mb-6">
@@ -26,7 +41,7 @@ function Dashboard() {
             </TabsList>
 
             <TabsContent value="overview" className="space-y-6">
-              <DashboardWidgetGrid />
+              <DashboardWidgetGrid widgets={widgets} />
             </TabsContent>
 
             <TabsContent value="activity" className="space-y-6">
@@ -42,7 +57,10 @@ function Dashboard() {
         <div className="w-full md:w-1/4 space-y-6">
           <UserProfile />
           <LoginStreakDisplay />
-          <QuickActions />
+          <QuickActions
+            recentProjects={recentProjects}
+            recentFeedback={recentFeedback}
+          />
         </div>
       </div>
     </div>
