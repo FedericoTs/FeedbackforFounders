@@ -1,194 +1,163 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import BaseWidget from "./BaseWidget";
-import { BarChart2, MessageSquare, Star, Trophy } from "lucide-react";
 import { supabase } from "../../../supabase/supabase";
-import { useAuth } from "../../../supabase/auth";
-
-interface StatItem {
-  title: string;
-  value: string | number;
-  icon: React.ReactNode;
-  color: string;
-  description?: string;
-}
+import { useAuth } from "@/supabase/auth";
+import { BarChart, Activity, Users, MessageSquare } from "lucide-react";
 
 interface StatsWidgetProps {
-  stats?: StatItem[];
+  title?: string;
   className?: string;
-  isLoading?: boolean;
-  isRemovable?: boolean;
-  onRemove?: () => void;
-  timeRange?: "day" | "week" | "month" | "all";
 }
 
-const defaultStats: StatItem[] = [
-  {
-    title: "Projects",
-    value: 12,
-    icon: <BarChart2 className="h-6 w-6 text-teal-600 dark:text-teal-400" />,
-    color: "bg-teal-100 dark:bg-teal-900/30",
-    description: "Active projects",
-  },
-  {
-    title: "Feedback Received",
-    value: 48,
-    icon: (
-      <MessageSquare className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
-    ),
-    color: "bg-cyan-100 dark:bg-cyan-900/30",
-    description: "Total feedback",
-  },
-  {
-    title: "Points Earned",
-    value: 750,
-    icon: <Star className="h-6 w-6 text-amber-600 dark:text-amber-400" />,
-    color: "bg-amber-100 dark:bg-amber-900/30",
-    description: "Reward points",
-  },
-  {
-    title: "Achievements",
-    value: 8,
-    icon: <Trophy className="h-6 w-6 text-rose-600 dark:text-rose-400" />,
-    color: "bg-rose-100 dark:bg-rose-900/30",
-    description: "Unlocked badges",
-  },
-];
+interface Stats {
+  projectCount: number;
+  feedbackCount: number;
+  feedbackResponseRate: number;
+  activeUsers: number;
+}
 
-const StatsWidget = ({
-  stats: initialStats,
-  className,
-  isLoading: initialLoading = false,
-  isRemovable = true,
-  onRemove,
-  timeRange = "all",
-}: StatsWidgetProps) => {
+const StatsWidget: React.FC<StatsWidgetProps> = ({
+  title = "Overview",
+  className = "",
+}) => {
   const { user } = useAuth();
-  const [stats, setStats] = useState<StatItem[]>(initialStats || defaultStats);
-  const [isLoading, setIsLoading] = useState(initialLoading);
-  const [selectedTimeRange, setSelectedTimeRange] = useState(timeRange);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user) {
-      fetchStats();
-    }
-  }, [user, selectedTimeRange]);
+    const fetchStats = async () => {
+      if (!user) return;
 
-  const fetchStats = async () => {
-    if (!user) return;
+      setLoading(true);
+      setError(null);
 
-    setIsLoading(true);
-    try {
-      // Fetch projects count
-      const { count: projectsCount } = await supabase
-        .from("projects")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id);
+      try {
+        // Fetch project count
+        const { count: projectCount, error: projectError } = await supabase
+          .from("projects")
+          .select("*", { count: "exact", head: true })
+          .eq("owner_id", user.id);
 
-      // Fetch feedback count
-      const { count: feedbackCount } = await supabase
-        .from("feedback")
-        .select("*", { count: "exact", head: true })
-        .eq("project_user_id", user.id);
+        if (projectError) throw projectError;
 
-      // Fetch user points
-      const { data: userData } = await supabase
-        .from("user_profiles")
-        .select("points")
-        .eq("user_id", user.id)
-        .single();
+        // Fetch feedback count
+        const { count: feedbackCount, error: feedbackError } = await supabase
+          .from("feedback")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id);
 
-      // Fetch achievements count
-      const { count: achievementsCount } = await supabase
-        .from("user_achievements")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id);
+        if (feedbackError) throw feedbackError;
 
-      const updatedStats: StatItem[] = [
-        {
-          title: "Projects",
-          value: projectsCount || 0,
-          icon: (
-            <BarChart2 className="h-6 w-6 text-teal-600 dark:text-teal-400" />
-          ),
-          color: "bg-teal-100 dark:bg-teal-900/30",
-          description: "Active projects",
-        },
-        {
-          title: "Feedback Received",
-          value: feedbackCount || 0,
-          icon: (
-            <MessageSquare className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
-          ),
-          color: "bg-cyan-100 dark:bg-cyan-900/30",
-          description: "Total feedback",
-        },
-        {
-          title: "Points Earned",
-          value: userData?.points || 0,
-          icon: <Star className="h-6 w-6 text-amber-600 dark:text-amber-400" />,
-          color: "bg-amber-100 dark:bg-amber-900/30",
-          description: "Reward points",
-        },
-        {
-          title: "Achievements",
-          value: achievementsCount || 0,
-          icon: <Trophy className="h-6 w-6 text-rose-600 dark:text-rose-400" />,
-          color: "bg-rose-100 dark:bg-rose-900/30",
-          description: "Unlocked badges",
-        },
-      ];
+        // For demo purposes, we'll use mock data for some stats
+        setStats({
+          projectCount: projectCount || 0,
+          feedbackCount: feedbackCount || 0,
+          feedbackResponseRate: 78, // Mock data
+          activeUsers: 42, // Mock data
+        });
+      } catch (err) {
+        console.error("Error fetching stats:", err);
+        setError("Failed to load statistics");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-      setStats(updatedStats);
-    } catch (error) {
-      console.error("Error fetching stats:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleRefresh = () => {
     fetchStats();
-  };
+  }, [user]);
+
+  if (loading) {
+    return (
+      <BaseWidget title={title} className={className}>
+        <div className="grid grid-cols-2 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} className="p-4">
+              <Skeleton className="h-4 w-8 mb-2" />
+              <Skeleton className="h-8 w-16" />
+            </Card>
+          ))}
+        </div>
+      </BaseWidget>
+    );
+  }
+
+  if (error) {
+    return (
+      <BaseWidget title={title} className={className}>
+        <div className="text-center text-red-500 p-4">{error}</div>
+      </BaseWidget>
+    );
+  }
 
   return (
-    <BaseWidget
-      title="Overview"
-      icon={<BarChart2 className="h-4 w-4" />}
-      className={className}
-      isLoading={isLoading}
-      isRemovable={isRemovable}
-      isRefreshable={true}
-      onRefresh={handleRefresh}
-      onRemove={onRemove}
-    >
+    <BaseWidget title={title} className={className}>
       <div className="grid grid-cols-2 gap-4">
-        {stats.map((stat, index) => (
-          <div
-            key={index}
-            className="p-4 bg-white dark:bg-slate-800/60 rounded-lg border border-gray-100 dark:border-gray-700 shadow-sm"
-          >
+        <Card>
+          <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                  {stat.title}
-                </p>
-                <h3 className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
-                  {stat.value}
-                </h3>
-                {stat.description && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    {stat.description}
-                  </p>
-                )}
+                <p className="text-sm text-slate-500">Projects</p>
+                <h4 className="text-2xl font-bold">
+                  {stats?.projectCount || 0}
+                </h4>
               </div>
-              <div
-                className={`h-12 w-12 ${stat.color} rounded-full flex items-center justify-center`}
-              >
-                {stat.icon}
+              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                <BarChart className="h-5 w-5 text-blue-600" />
               </div>
             </div>
-          </div>
-        ))}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-500">Feedback</p>
+                <h4 className="text-2xl font-bold">
+                  {stats?.feedbackCount || 0}
+                </h4>
+              </div>
+              <div className="h-10 w-10 rounded-full bg-teal-100 flex items-center justify-center">
+                <MessageSquare className="h-5 w-5 text-teal-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-500">Response Rate</p>
+                <h4 className="text-2xl font-bold">
+                  {stats?.feedbackResponseRate || 0}%
+                </h4>
+              </div>
+              <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
+                <Activity className="h-5 w-5 text-amber-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-500">Active Users</p>
+                <h4 className="text-2xl font-bold">
+                  {stats?.activeUsers || 0}
+                </h4>
+              </div>
+              <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
+                <Users className="h-5 w-5 text-purple-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </BaseWidget>
   );

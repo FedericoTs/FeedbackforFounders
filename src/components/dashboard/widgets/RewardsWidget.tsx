@@ -22,6 +22,7 @@ interface RewardsWidgetProps {
   className?: string;
   isLoading?: boolean;
   onRemove?: () => void;
+  title?: string;
 }
 
 const defaultUser = {
@@ -50,6 +51,7 @@ const RewardsWidget = ({
   className,
   isLoading = false,
   onRemove,
+  title = "Your Rewards",
 }: RewardsWidgetProps) => {
   const progressPercentage = Math.round(
     (user.points / user.nextLevelPoints) * 100,
@@ -57,7 +59,7 @@ const RewardsWidget = ({
 
   return (
     <BaseWidget
-      title="Your Rewards"
+      title={title}
       icon={<Trophy className="h-4 w-4" />}
       className={className}
       isLoading={isLoading}
@@ -100,7 +102,6 @@ const RewardsWidget = ({
           <Progress
             value={progressPercentage}
             className="h-2 bg-slate-200 dark:bg-slate-700"
-            indicatorClassName="bg-gradient-to-r from-teal-500 to-cyan-500"
           />
           <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mt-1">
             <span>
@@ -116,7 +117,7 @@ const RewardsWidget = ({
           <h4 className="font-medium text-slate-900 dark:text-white text-sm">
             Recent Achievements
           </h4>
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             {user.achievements.map((achievement, index) => (
               <div
                 key={index}

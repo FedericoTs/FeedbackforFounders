@@ -6,112 +6,95 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
-import {
-  notificationsService,
-  NotificationType,
-} from "@/services/notifications";
 import BaseWidget from "./BaseWidget";
 
 interface NotificationsWidgetProps {
   limit?: number;
   className?: string;
+  title?: string;
+}
+
+interface Notification {
+  id: string;
+  title: string;
+  type: string;
+  is_read: boolean;
+  created_at: string;
+  link?: string;
+  content?: string;
 }
 
 const NotificationsWidget: React.FC<NotificationsWidgetProps> = ({
   limit = 5,
   className,
+  title = "Recent Notifications",
 }) => {
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
-    fetchNotifications();
-    fetchUnreadCount();
+    // Simulate fetching notifications
+    setTimeout(() => {
+      const mockNotifications = [
+        {
+          id: "1",
+          title: "New feedback received",
+          type: "feedback",
+          is_read: false,
+          created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 minutes ago
+          link: "/dashboard/feedback",
+        },
+        {
+          id: "2",
+          title: "Project collaboration invite",
+          type: "project",
+          is_read: false,
+          created_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
+          link: "/dashboard/projects",
+        },
+        {
+          id: "3",
+          title: "Achievement unlocked: First Feedback",
+          type: "achievement",
+          is_read: true,
+          created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
+          link: "/dashboard/rewards",
+        },
+      ];
 
-    // Subscribe to new notifications
-    const { unsubscribe } = notificationsService.subscribeToNotifications(
-      (notification) => {
-        // Add the new notification to the list
-        setNotifications((prev) => [notification, ...prev.slice(0, limit - 1)]);
-        // Increment the unread count
-        setUnreadCount((prev) => prev + 1);
-      },
-    );
-
-    return () => {
-      unsubscribe();
-    };
-  }, [limit]);
-
-  const fetchNotifications = async () => {
-    setIsLoading(true);
-    try {
-      const { data } = await notificationsService.getNotifications({
-        limit,
-      });
-      setNotifications(data);
-    } catch (error) {
-      console.error("Error fetching notifications:", error);
-    } finally {
+      setNotifications(mockNotifications);
+      setUnreadCount(mockNotifications.filter((n) => !n.is_read).length);
       setIsLoading(false);
-    }
-  };
+    }, 1000);
+  }, []);
 
-  const fetchUnreadCount = async () => {
-    try {
-      const count = await notificationsService.getUnreadCount();
-      setUnreadCount(count);
-    } catch (error) {
-      console.error("Error fetching unread count:", error);
-    }
-  };
-
-  const handleMarkAsRead = async (notificationId: string) => {
-    try {
-      const success = await notificationsService.markAsRead(notificationId);
-      if (success) {
-        // Update the notification in the list
-        setNotifications((prev) =>
-          prev.map((n) =>
-            n.id === notificationId ? { ...n, is_read: true } : n,
-          ),
-        );
-        // Decrement the unread count
-        setUnreadCount((prev) => Math.max(0, prev - 1));
-      }
-    } catch (error) {
-      console.error("Error marking notification as read:", error);
-    }
-  };
-
-  const getNotificationIcon = (type: NotificationType) => {
+  const getNotificationBadge = (type: string) => {
     switch (type) {
-      case NotificationType.FEEDBACK:
+      case "feedback":
         return (
           <Badge className="bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-400">
             Feedback
           </Badge>
         );
-      case NotificationType.PROJECT:
+      case "project":
         return (
           <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
             Project
           </Badge>
         );
-      case NotificationType.REWARD:
-        return (
-          <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
-            Reward
-          </Badge>
-        );
-      case NotificationType.ACHIEVEMENT:
+      case "achievement":
         return (
           <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">
             Achievement
           </Badge>
         );
-      case NotificationType.SYSTEM:
+      case "reward":
+        return (
+          <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+            Reward
+          </Badge>
+        );
       default:
         return (
           <Badge className="bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-400">
@@ -121,20 +104,20 @@ const NotificationsWidget: React.FC<NotificationsWidgetProps> = ({
     }
   };
 
+  const handleMarkAsRead = (id: string) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)),
+    );
+    setUnreadCount((prev) => Math.max(0, prev - 1));
+  };
+
   return (
     <BaseWidget
-      title="Recent Notifications"
+      title={title}
       icon={<Bell className="h-4 w-4" />}
       className={className}
-      action={
-        <Link
-          to="/dashboard/notifications"
-          className="flex items-center text-xs text-blue-600 hover:text-blue-800"
-        >
-          View all <ChevronRight className="h-3 w-3 ml-1" />
-        </Link>
-      }
-      badge={unreadCount > 0 ? unreadCount : undefined}
+      isRefreshable={true}
+      onRefresh={() => setIsLoading(true)}
     >
       <div className="space-y-1">
         {isLoading ? (
@@ -158,7 +141,7 @@ const NotificationsWidget: React.FC<NotificationsWidgetProps> = ({
                   className={`p-2 rounded-md ${!notification.is_read ? "bg-blue-50 dark:bg-blue-900/10" : ""}`}
                 >
                   <div className="flex justify-between items-start">
-                    {getNotificationIcon(notification.type)}
+                    {getNotificationBadge(notification.type)}
                     <span className="text-xs text-gray-500 flex items-center">
                       <Clock className="h-3 w-3 mr-1" />
                       {formatDistanceToNow(new Date(notification.created_at), {
@@ -203,6 +186,14 @@ const NotificationsWidget: React.FC<NotificationsWidgetProps> = ({
             <p>No notifications yet</p>
           </div>
         )}
+      </div>
+      <div className="mt-4 flex justify-center">
+        <Link to="/dashboard/notifications" className="w-full">
+          <Button variant="outline" size="sm" className="w-full">
+            View all notifications
+            <ChevronRight className="ml-2 h-4 w-4" />
+          </Button>
+        </Link>
       </div>
     </BaseWidget>
   );

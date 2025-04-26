@@ -161,7 +161,6 @@ function App() {
             <Toaster />
             <AwardToastListener />
             <PointsAnimationListener />
-            <PointsAnimationListener />
           </AwardToastProvider>
         </SessionTimeoutProvider>
       </AuthProvider>

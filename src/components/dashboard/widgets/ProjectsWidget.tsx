@@ -1,9 +1,14 @@
-import React from "react";
-import BaseWidget from "./BaseWidget";
-import { Progress } from "@/components/ui/progress";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import React, { useState, useEffect } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { FileText, MessageSquare, Code, Users } from "lucide-react";
+import BaseWidget from "./BaseWidget";
+import { supabase } from "../../../supabase/supabase";
+import { useAuth } from "@/supabase/auth";
+import { Link } from "react-router-dom";
 
 interface ProjectItem {
   id: string;
@@ -21,6 +26,7 @@ interface ProjectsWidgetProps {
   className?: string;
   isLoading?: boolean;
   onRemove?: () => void;
+  title?: string;
 }
 
 const defaultProjects: ProjectItem[] = [
@@ -73,6 +79,7 @@ const ProjectsWidget = ({
   className,
   isLoading = false,
   onRemove,
+  title = "Recent Projects",
 }: ProjectsWidgetProps) => {
   const getProjectIcon = (icon: string) => {
     switch (icon) {
@@ -135,7 +142,7 @@ const ProjectsWidget = ({
 
   return (
     <BaseWidget
-      title="Recent Projects"
+      title={title}
       icon={<FileText className="h-4 w-4" />}
       className={className}
       isLoading={isLoading}
@@ -163,20 +170,6 @@ const ProjectsWidget = ({
                 </div>
               </div>
               {getStatusBadge(project.status)}
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-600 dark:text-slate-400">
-                  Progress
-                </span>
-                <span className={getProgressColor(project.status)}>
-                  {project.progress}%
-                </span>
-              </div>
-              <Progress
-                value={project.progress}
-                className="h-2 bg-slate-200 dark:bg-slate-700"
-              />
             </div>
             <div className="flex items-center justify-between mt-4">
               <div className="flex -space-x-2">
