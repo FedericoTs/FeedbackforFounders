@@ -28,6 +28,8 @@ interface QueryOptions<T, P> {
     initialDelay?: number;
     maxDelay?: number;
   };
+  /** Whether to use stale-while-revalidate pattern */
+  staleWhileRevalidate?: boolean;
 }
 
 interface QueryResult<T> {
@@ -43,6 +45,8 @@ interface QueryResult<T> {
   refetch: () => Promise<void>;
   /** Function to invalidate the cache and refetch */
   invalidateAndRefetch: () => Promise<void>;
+  /** Whether the query is currently fetching (initial or background) */
+  isFetching: boolean;
 }
 
 /**
@@ -59,6 +63,7 @@ export function useOptimizedQuery<T, P extends Record<string, any>>(
     cacheTtl = 5 * 60 * 1000, // 5 minutes default
     refetchOnFocus = true,
     refetchOnReconnect = true,
+    staleWhileRevalidate = false,
     retry = {
       maxRetries: 3,
       initialDelay: 300,
@@ -68,6 +73,7 @@ export function useOptimizedQuery<T, P extends Record<string, any>>(
 
   const [data, setData] = useState<T | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isFetching, setIsFetching] = useState<boolean>(false);
   const [isError, setIsError] = useState<boolean>(false);
   const [error, setError] = useState<Error | null>(null);
 
@@ -79,11 +85,22 @@ export function useOptimizedQuery<T, P extends Record<string, any>>(
     async (bypassCache: boolean = false) => {
       if (!enabled) return;
 
-      setIsLoading(true);
+      setIsFetching(true);
+      if (data === null) setIsLoading(true);
       setIsError(false);
       setError(null);
 
       try {
+        // Check for stale data if using stale-while-revalidate
+        if (staleWhileRevalidate && !bypassCache) {
+          const staleData = requestCache.get<T>(cacheKey);
+          if (staleData) {
+            setData(staleData);
+            setIsLoading(false);
+            // Continue fetching in background
+          }
+        }
+
         const result = await requestCache.withCache(
           () => retryWithBackoff(() => queryFn(params), retry),
           { key: cacheKey, ttl: cacheTtl, bypassCache },
@@ -91,13 +108,24 @@ export function useOptimizedQuery<T, P extends Record<string, any>>(
 
         setData(result);
         setIsLoading(false);
+        setIsFetching(false);
       } catch (err) {
         setIsError(true);
         setError(err instanceof Error ? err : new Error(String(err)));
         setIsLoading(false);
+        setIsFetching(false);
       }
     },
-    [enabled, queryFn, params, cacheKey, cacheTtl, retry],
+    [
+      enabled,
+      queryFn,
+      params,
+      cacheKey,
+      cacheTtl,
+      retry,
+      staleWhileRevalidate,
+      data,
+    ],
   );
 
   // Function to manually refetch data
@@ -151,6 +179,7 @@ export function useOptimizedQuery<T, P extends Record<string, any>>(
     error,
     refetch,
     invalidateAndRefetch,
+    isFetching,
   };
 }
 

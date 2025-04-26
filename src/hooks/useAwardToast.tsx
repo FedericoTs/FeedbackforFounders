@@ -77,20 +77,12 @@ export function AwardToastProvider({ children }: AwardToastProviderProps) {
     }
   }, [toast]);
 
-  // Get the appropriate sound file based on the variant
+  // This function is kept for backward compatibility
+  // but we're now using the SoundEffects component to handle sounds
   const getSoundFileForVariant = (variant?: string) => {
-    switch (variant) {
-      case "achievement":
-        return "/sounds/reward-achievement.mp3";
-      case "streak":
-        return "/sounds/reward-streak.mp3";
-      case "level":
-        return "/sounds/reward-level.mp3";
-      case "feedback":
-        return "/sounds/reward-feedback.mp3";
-      default:
-        return "/sounds/reward-default.mp3";
-    }
+    // We don't need to return actual file paths anymore
+    // as the SoundEffects component will handle this mapping
+    return variant || "default";
   };
 
   // Play a sound file

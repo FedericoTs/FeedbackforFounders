@@ -107,7 +107,10 @@ const ActivityItem: React.FC<ActivityItemProps> = ({
             >
               {getActivityIcon()}
               <span className={color}>
-                {activity.type.charAt(0).toUpperCase() + activity.type.slice(1)}
+                {activity.type
+                  ? activity.type.charAt(0).toUpperCase() +
+                    activity.type.slice(1)
+                  : "Activity"}
               </span>
             </Badge>
 

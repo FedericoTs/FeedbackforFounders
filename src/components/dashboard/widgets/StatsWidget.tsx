@@ -1,163 +1,62 @@
-import React, { useEffect, useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import React from "react";
 import BaseWidget from "./BaseWidget";
-import { supabase } from "../../../supabase/supabase";
-import { useAuth } from "@/supabase/auth";
-import { BarChart, Activity, Users, MessageSquare } from "lucide-react";
+import { BarChart3 } from "lucide-react";
 
 interface StatsWidgetProps {
-  title?: string;
   className?: string;
 }
 
-interface Stats {
-  projectCount: number;
-  feedbackCount: number;
-  feedbackResponseRate: number;
-  activeUsers: number;
-}
-
-const StatsWidget: React.FC<StatsWidgetProps> = ({
-  title = "Overview",
-  className = "",
-}) => {
-  const { user } = useAuth();
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      if (!user) return;
-
-      setLoading(true);
-      setError(null);
-
-      try {
-        // Fetch project count
-        const { count: projectCount, error: projectError } = await supabase
-          .from("projects")
-          .select("*", { count: "exact", head: true })
-          .eq("owner_id", user.id);
-
-        if (projectError) throw projectError;
-
-        // Fetch feedback count
-        const { count: feedbackCount, error: feedbackError } = await supabase
-          .from("feedback")
-          .select("*", { count: "exact", head: true })
-          .eq("user_id", user.id);
-
-        if (feedbackError) throw feedbackError;
-
-        // For demo purposes, we'll use mock data for some stats
-        setStats({
-          projectCount: projectCount || 0,
-          feedbackCount: feedbackCount || 0,
-          feedbackResponseRate: 78, // Mock data
-          activeUsers: 42, // Mock data
-        });
-      } catch (err) {
-        console.error("Error fetching stats:", err);
-        setError("Failed to load statistics");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchStats();
-  }, [user]);
-
-  if (loading) {
-    return (
-      <BaseWidget title={title} className={className}>
-        <div className="grid grid-cols-2 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i} className="p-4">
-              <Skeleton className="h-4 w-8 mb-2" />
-              <Skeleton className="h-8 w-16" />
-            </Card>
-          ))}
-        </div>
-      </BaseWidget>
-    );
-  }
-
-  if (error) {
-    return (
-      <BaseWidget title={title} className={className}>
-        <div className="text-center text-red-500 p-4">{error}</div>
-      </BaseWidget>
-    );
-  }
-
+export const StatsWidget: React.FC<StatsWidgetProps> = ({ className }) => {
   return (
-    <BaseWidget title={title} className={className}>
-      <div className="grid grid-cols-2 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-500">Projects</p>
-                <h4 className="text-2xl font-bold">
-                  {stats?.projectCount || 0}
-                </h4>
-              </div>
-              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                <BarChart className="h-5 w-5 text-blue-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+    <BaseWidget
+      title="Overview"
+      icon={<BarChart3 className="h-4 w-4" />}
+      className={className}
+      isRefreshable
+      onRefresh={() => console.log("Refreshing stats")}
+    >
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-slate-50 p-4 rounded-md">
+          <div className="text-sm text-slate-500">Total Projects</div>
+          <div className="text-2xl font-bold">12</div>
+          <div className="text-xs text-green-600 mt-1">
+            ↑ 8% from last month
+          </div>
+        </div>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-500">Feedback</p>
-                <h4 className="text-2xl font-bold">
-                  {stats?.feedbackCount || 0}
-                </h4>
-              </div>
-              <div className="h-10 w-10 rounded-full bg-teal-100 flex items-center justify-center">
-                <MessageSquare className="h-5 w-5 text-teal-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="bg-slate-50 p-4 rounded-md">
+          <div className="text-sm text-slate-500">Feedback Received</div>
+          <div className="text-2xl font-bold">48</div>
+          <div className="text-xs text-green-600 mt-1">
+            ↑ 12% from last month
+          </div>
+        </div>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-500">Response Rate</p>
-                <h4 className="text-2xl font-bold">
-                  {stats?.feedbackResponseRate || 0}%
-                </h4>
-              </div>
-              <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
-                <Activity className="h-5 w-5 text-amber-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="bg-slate-50 p-4 rounded-md">
+          <div className="text-sm text-slate-500">Points Earned</div>
+          <div className="text-2xl font-bold">1,250</div>
+          <div className="text-xs text-green-600 mt-1">
+            ↑ 15% from last month
+          </div>
+        </div>
+      </div>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-500">Active Users</p>
-                <h4 className="text-2xl font-bold">
-                  {stats?.activeUsers || 0}
-                </h4>
-              </div>
-              <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
-                <Users className="h-5 w-5 text-purple-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="mt-4 p-4 bg-slate-50 rounded-md">
+        <h3 className="text-sm font-medium mb-2">Recent Activity</h3>
+        <div className="space-y-2">
+          <div className="flex justify-between items-center">
+            <div className="text-sm">Feedback submitted</div>
+            <div className="text-xs text-slate-500">2 hours ago</div>
+          </div>
+          <div className="flex justify-between items-center">
+            <div className="text-sm">Project created</div>
+            <div className="text-xs text-slate-500">Yesterday</div>
+          </div>
+          <div className="flex justify-between items-center">
+            <div className="text-sm">Achievement unlocked</div>
+            <div className="text-xs text-slate-500">3 days ago</div>
+          </div>
+        </div>
       </div>
     </BaseWidget>
   );

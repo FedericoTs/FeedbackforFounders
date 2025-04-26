@@ -107,7 +107,7 @@ const VirtualizedActivityFeed: React.FC<VirtualizedActivityFeedProps> = ({
       const cursor = lastActivity ? lastActivity.created_at : undefined;
 
       const data = await activityService.getUserActivities({
-        userId,
+        userId: userId?.id,
         limit,
         cursor,
         activityType: filter,
@@ -253,4 +253,6 @@ const VirtualizedActivityFeed: React.FC<VirtualizedActivityFeedProps> = ({
   );
 };
 
+// Export both as named and default export for compatibility
+export { VirtualizedActivityFeed };
 export default VirtualizedActivityFeed;

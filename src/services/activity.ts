@@ -433,14 +433,18 @@ export const activityService = {
       const { limit = 10, offset = 0, type, timeRange } = options;
 
       console.log(
-        `[Activity Service] Fetching activities for user ${userId} with limit ${limit}, offset ${offset}`,
+        `[Activity Service] Fetching activities for user ${userId || "unknown"} with limit ${limit}, offset ${offset}`,
       );
 
-      let query = supabase
-        .from("user_activity")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
+      let query = supabase.from("user_activity").select("*");
+
+      // Only add user_id filter if userId is provided and is a string
+      if (userId && typeof userId === "string") {
+        query = query.eq("user_id", userId);
+      }
+
+      // Add ordering
+      query = query.order("created_at", { ascending: false });
 
       // Apply type filter if specified
       if (type && type !== "all") {

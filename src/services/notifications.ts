@@ -8,6 +8,14 @@ export enum NotificationType {
   SYSTEM = "system",
 }
 
+export enum NotificationCategory {
+  GENERAL = "general",
+  ACTIVITY = "activity",
+  COLLABORATION = "collaboration",
+  GAMIFICATION = "gamification",
+  SYSTEM = "system",
+}
+
 export interface Notification {
   id: string;
   user_id: string;
@@ -18,6 +26,7 @@ export interface Notification {
   is_read: boolean;
   created_at: string;
   updated_at: string;
+  category?: NotificationCategory;
 }
 
 export interface NotificationPreferences {
@@ -38,44 +47,84 @@ export const notificationsService = {
       limit?: number;
       offset?: number;
       unreadOnly?: boolean;
+      includeRead?: boolean;
+      category?: NotificationCategory;
+      type?: NotificationType;
+      cursor?: string;
     } = {},
-  ): Promise<{ data: Notification[]; count: number }> {
+  ): Promise<{
+    data: Notification[];
+    metadata: { hasMore: boolean; nextCursor?: string };
+  }> {
     try {
-      const { limit = 10, offset = 0, unreadOnly = false } = options;
+      const {
+        limit = 10,
+        offset = 0,
+        unreadOnly = false,
+        includeRead = true,
+        category,
+        type,
+        cursor,
+      } = options;
 
-      // Get the total count
-      const { count, error: countError } = await supabase
-        .from("notifications")
-        .select("*", { count: "exact", head: true })
-        .eq(unreadOnly ? "is_read" : "id", unreadOnly ? false : "id");
-
-      if (countError) {
-        console.error("Error getting notifications count:", countError);
-        return { data: [], count: 0 };
-      }
-
-      // Get the notifications
       let query = supabase
         .from("notifications")
         .select("*")
-        .order("created_at", { ascending: false })
-        .range(offset, offset + limit - 1);
+        .order("created_at", { ascending: false });
 
+      // Apply filters
       if (unreadOnly) {
         query = query.eq("is_read", false);
+      } else if (!includeRead) {
+        query = query.eq("is_read", false);
       }
+
+      if (category) {
+        query = query.eq("category", category);
+      }
+
+      if (type) {
+        query = query.eq("type", type);
+      }
+
+      // Apply pagination
+      if (cursor) {
+        // Cursor-based pagination
+        query = query.lt("created_at", cursor);
+      } else {
+        // Offset-based pagination
+        query = query.range(offset, offset + limit - 1);
+      }
+
+      query = query.limit(limit);
 
       const { data, error } = await query;
 
       if (error) {
         console.error("Error getting notifications:", error);
-        return { data: [], count: 0 };
+        return { data: [], metadata: { hasMore: false } };
       }
 
-      return { data: data as Notification[], count: count || 0 };
+      // Determine if there are more results
+      const hasMore = (data?.length || 0) === limit;
+
+      // Get the next cursor value from the last item
+      let nextCursor: string | undefined;
+      if (hasMore && data && data.length > 0) {
+        const lastItem = data[data.length - 1];
+        nextCursor = lastItem.created_at;
+      }
+
+      return {
+        data: data || [],
+        metadata: {
+          hasMore,
+          nextCursor,
+        },
+      };
     } catch (error) {
       console.error("Error in getNotifications:", error);
-      return { data: [], count: 0 };
+      return { data: [], metadata: { hasMore: false } };
     }
   },
 
@@ -172,6 +221,7 @@ export const notificationsService = {
     title: string;
     content?: string;
     link?: string;
+    category?: NotificationCategory;
   }): Promise<Notification | null> {
     try {
       const { data, error } = await supabase.rpc("create_notification", {
@@ -179,6 +229,7 @@ export const notificationsService = {
         p_title: notification.title,
         p_content: notification.content || null,
         p_link: notification.link || null,
+        p_category: notification.category || NotificationCategory.GENERAL,
       });
 
       if (error) {

@@ -18,11 +18,14 @@ interface CacheOptions {
   key?: string;
   /** Whether to bypass the cache for this request */
   bypassCache?: boolean;
+  /** Whether to use stale-while-revalidate pattern */
+  staleWhileRevalidate?: boolean;
 }
 
 class RequestCache {
   private cache: Map<string, CacheItem<any>> = new Map();
   private defaultTTL: number = 5 * 60 * 1000; // 5 minutes default TTL
+  private revalidating: Set<string> = new Set();
 
   /**
    * Set the default TTL for all cache items
@@ -48,6 +51,22 @@ class RequestCache {
     }
 
     return item.data;
+  }
+
+  /**
+   * Get an item from the cache, including stale data
+   */
+  getStale<T>(key: string): { data: T | null; isStale: boolean } {
+    const item = this.cache.get(key);
+    if (!item) return { data: null, isStale: false };
+
+    const now = Date.now();
+    const isStale = now > item.expiresAt;
+
+    return {
+      data: item.data as T,
+      isStale,
+    };
   }
 
   /**
@@ -101,6 +120,7 @@ class RequestCache {
       ttl = this.defaultTTL,
       key = fn.toString(),
       bypassCache = false,
+      staleWhileRevalidate = false,
     } = options;
 
     // Bypass cache if requested
@@ -114,6 +134,31 @@ class RequestCache {
     const cachedData = this.get<T>(key);
     if (cachedData !== null) {
       return cachedData;
+    }
+
+    // Check for stale data if using stale-while-revalidate
+    if (staleWhileRevalidate) {
+      const { data: staleData, isStale } = this.getStale<T>(key);
+
+      if (staleData !== null && isStale && !this.revalidating.has(key)) {
+        // Mark as revalidating to prevent multiple simultaneous requests
+        this.revalidating.add(key);
+
+        // Revalidate in background
+        setTimeout(async () => {
+          try {
+            const freshData = await fn();
+            this.set(key, freshData, ttl);
+          } catch (error) {
+            console.error(`Error revalidating cache for key ${key}:`, error);
+          } finally {
+            this.revalidating.delete(key);
+          }
+        }, 0);
+
+        // Return stale data immediately
+        return staleData;
+      }
     }
 
     // If not in cache, call the function
@@ -139,6 +184,41 @@ class RequestCache {
       );
 
     return `${base}:${JSON.stringify(sortedParams)}`;
+  }
+
+  /**
+   * Get cache statistics
+   */
+  getStats() {
+    const now = Date.now();
+    let validItems = 0;
+    let expiredItems = 0;
+
+    for (const item of this.cache.values()) {
+      if (now <= item.expiresAt) {
+        validItems++;
+      } else {
+        expiredItems++;
+      }
+    }
+
+    return {
+      totalItems: this.cache.size,
+      validItems,
+      expiredItems,
+      revalidatingCount: this.revalidating.size,
+    };
+  }
+
+  /**
+   * Invalidate all cache entries that match a prefix
+   */
+  invalidateByPrefix(keyPrefix: string): void {
+    for (const key of this.cache.keys()) {
+      if (key.startsWith(keyPrefix)) {
+        this.delete(key);
+      }
+    }
   }
 }
 

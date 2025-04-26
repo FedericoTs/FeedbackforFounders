@@ -14,6 +14,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/supabase/auth";
 import NotificationsPopover from "../NotificationsPopover";
+import { Volume2 } from "lucide-react";
 
 interface TopNavigationProps {
   onMenuClick?: () => void;
@@ -115,6 +116,12 @@ const TopNavigation: React.FC<TopNavigationProps> = ({
               <DropdownMenuItem onClick={() => navigate("/dashboard/settings")}>
                 <Settings className="mr-2 h-4 w-4" />
                 Settings
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => navigate("/dashboard/sound-settings")}
+              >
+                <Volume2 className="mr-2 h-4 w-4" />
+                Sound Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut}>

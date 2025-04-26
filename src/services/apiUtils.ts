@@ -165,16 +165,232 @@ export function createCachedQuery<T, P extends Record<string, any>>(
   options: {
     cacheKeyPrefix: string;
     ttl?: number;
+    staleWhileRevalidate?: boolean;
   },
 ) {
-  const { cacheKeyPrefix, ttl } = options;
+  const { cacheKeyPrefix, ttl, staleWhileRevalidate = false } = options;
 
   return async (params: P): Promise<T> => {
     const cacheKey = requestCache.createKey(cacheKeyPrefix, params);
 
     return requestCache.withCache(
       () => retryWithBackoff(() => queryFn(params)),
-      { key: cacheKey, ttl },
+      { key: cacheKey, ttl, staleWhileRevalidate },
     );
+  };
+}
+
+/**
+ * Create an optimized query builder for a Supabase table
+ */
+export function createOptimizedQuery<T>(
+  tableName: string,
+  options: {
+    ttl?: number;
+    staleWhileRevalidate?: boolean;
+    defaultSelect?: string;
+  } = {},
+) {
+  const {
+    ttl = 5 * 60 * 1000, // 5 minutes default
+    staleWhileRevalidate = false,
+    defaultSelect = "*",
+  } = options;
+
+  return {
+    /**
+     * Get a single row by ID with caching
+     */
+    async getById(
+      id: string | number,
+      select = defaultSelect,
+    ): Promise<T | null> {
+      const cacheKey = `${tableName}:${id}:${select}`;
+
+      return requestCache.withCache(
+        async () => {
+          const { data, error } = await supabase
+            .from(tableName)
+            .select(select)
+            .eq("id", id)
+            .single();
+
+          if (error) throw error;
+          return data as T;
+        },
+        { key: cacheKey, ttl, staleWhileRevalidate },
+      );
+    },
+
+    /**
+     * Get multiple rows with filtering, ordering, and pagination
+     */
+    async getMany(
+      params: {
+        select?: string;
+        filter?: Record<string, any>;
+        order?: { column: string; ascending?: boolean }[];
+        pagination?: { page?: number; pageSize?: number };
+      } = {},
+    ): Promise<T[]> {
+      const {
+        select = defaultSelect,
+        filter = {},
+        order = [],
+        pagination = {},
+      } = params;
+
+      const cacheKey = `${tableName}:list:${JSON.stringify({ select, filter, order, pagination })}`;
+
+      return requestCache.withCache(
+        async () => {
+          let query = supabase.from(tableName).select(select);
+
+          // Apply filters
+          Object.entries(filter).forEach(([key, value]) => {
+            if (Array.isArray(value)) {
+              query = query.in(key, value);
+            } else if (value === null) {
+              query = query.is(key, null);
+            } else {
+              query = query.eq(key, value);
+            }
+          });
+
+          // Apply ordering
+          order.forEach(({ column, ascending = true }) => {
+            query = query.order(column, { ascending });
+          });
+
+          // Apply pagination
+          if (
+            pagination.page !== undefined &&
+            pagination.pageSize !== undefined
+          ) {
+            const { page, pageSize } = pagination;
+            query = query.range(page * pageSize, (page + 1) * pageSize - 1);
+          } else if (pagination.pageSize !== undefined) {
+            query = query.limit(pagination.pageSize);
+          }
+
+          const { data, error } = await query;
+
+          if (error) throw error;
+          return data as T[];
+        },
+        { key: cacheKey, ttl, staleWhileRevalidate },
+      );
+    },
+
+    /**
+     * Count rows with filtering
+     */
+    async count(filter: Record<string, any> = {}): Promise<number> {
+      const cacheKey = `${tableName}:count:${JSON.stringify(filter)}`;
+
+      return requestCache.withCache(
+        async () => {
+          let query = supabase
+            .from(tableName)
+            .select("id", { count: "exact", head: true });
+
+          // Apply filters
+          Object.entries(filter).forEach(([key, value]) => {
+            if (Array.isArray(value)) {
+              query = query.in(key, value);
+            } else if (value === null) {
+              query = query.is(key, null);
+            } else {
+              query = query.eq(key, value);
+            }
+          });
+
+          const { count, error } = await query;
+
+          if (error) throw error;
+          return count || 0;
+        },
+        { key: cacheKey, ttl, staleWhileRevalidate },
+      );
+    },
+
+    /**
+     * Invalidate cache for this table
+     */
+    invalidateCache() {
+      requestCache.invalidateByPrefix(`${tableName}:`);
+    },
+
+    /**
+     * Invalidate cache for a specific ID
+     */
+    invalidateCacheForId(id: string | number) {
+      requestCache.invalidateByPrefix(`${tableName}:${id}:`);
+    },
+  };
+}
+
+/**
+ * Add optimistic update functionality to a mutation function
+ */
+export function withOptimisticUpdate<T, R>(
+  mutationFn: (arg: T) => Promise<R>,
+  optimisticUpdateFn: (arg: T) => void,
+  rollbackFn: (arg: T) => void,
+) {
+  return async (arg: T): Promise<R> => {
+    // Perform optimistic update
+    optimisticUpdateFn(arg);
+
+    try {
+      // Perform actual mutation
+      const result = await mutationFn(arg);
+      return result;
+    } catch (error) {
+      // Rollback optimistic update on error
+      rollbackFn(arg);
+      throw error;
+    }
+  };
+}
+
+/**
+ * Add retry logic to a function
+ */
+export function withRetry<T, R>(
+  fn: (arg: T) => Promise<R>,
+  options: {
+    maxRetries?: number;
+    retryDelay?: number;
+    shouldRetry?: (error: any) => boolean;
+  } = {},
+) {
+  const {
+    maxRetries = 3,
+    retryDelay = 1000,
+    shouldRetry = () => true,
+  } = options;
+
+  return async (arg: T): Promise<R> => {
+    let lastError: any;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await fn(arg);
+      } catch (error) {
+        lastError = error;
+
+        // Check if we should retry
+        if (attempt >= maxRetries || !shouldRetry(error)) {
+          throw error;
+        }
+
+        // Wait before retrying with exponential backoff
+        const delay = retryDelay * Math.pow(2, attempt);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+
+    throw lastError;
   };
 }

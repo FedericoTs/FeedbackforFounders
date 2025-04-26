@@ -12,7 +12,7 @@ interface LeaderboardWidgetProps {
   showUserRank?: boolean;
 }
 
-const LeaderboardWidget: React.FC<LeaderboardWidgetProps> = ({
+export const LeaderboardWidget: React.FC<LeaderboardWidgetProps> = ({
   className,
   limit = 5,
   showUserRank = true,

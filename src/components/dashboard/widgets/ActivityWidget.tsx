@@ -1,43 +1,30 @@
-import React, { useState } from "react";
+import React from "react";
 import BaseWidget from "./BaseWidget";
-import { Button } from "@/components/ui/button";
-import { RefreshCw, MessageSquare } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import VirtualizedActivityFeed from "../VirtualizedActivityFeed";
+import { Activity } from "lucide-react";
+import { VirtualizedActivityFeed } from "@/components/dashboard/VirtualizedActivityFeed";
 
 interface ActivityWidgetProps {
-  title?: string;
   className?: string;
-  limit?: number;
+  compact?: boolean;
 }
 
-const ActivityWidget: React.FC<ActivityWidgetProps> = ({
-  title = "Recent Activity",
-  className = "",
-  limit = 10,
+export const ActivityWidget: React.FC<ActivityWidgetProps> = ({
+  className,
+  compact = true,
 }) => {
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  const handleRefresh = () => {
-    setRefreshKey((prev) => prev + 1);
-  };
-
   return (
     <BaseWidget
-      title={title}
+      title="Recent Activity"
+      icon={<Activity className="h-4 w-4" />}
       className={className}
-      icon={<MessageSquare className="h-4 w-4" />}
-      isRefreshable={true}
-      onRefresh={handleRefresh}
+      isRefreshable
+      onRefresh={() => console.log("Refreshing activity")}
     >
-      <div className="h-full">
-        <VirtualizedActivityFeed
-          key={refreshKey}
-          limit={limit}
-          showFilters={false}
-          compact={true}
-        />
-      </div>
+      <VirtualizedActivityFeed
+        limit={5}
+        compact={compact}
+        showFilters={false}
+      />
     </BaseWidget>
   );
 };

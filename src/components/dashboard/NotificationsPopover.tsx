@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Bell } from "lucide-react";
+import React, { useState, useEffect, useMemo } from "react";
+import { Bell, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -8,6 +8,13 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuGroup,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,6 +24,7 @@ import { formatDistanceToNow } from "date-fns";
 import {
   Notification,
   NotificationType,
+  NotificationCategory,
   notificationsService,
 } from "@/services/notifications";
 import { useAuth } from "@/supabase/auth";
@@ -33,13 +41,42 @@ const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | undefined>(undefined);
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [typeFilter, setTypeFilter] = useState<string | null>(null);
+  const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+
+  // Group notifications by date
+  const groupedNotifications = useMemo(() => {
+    const groups: Record<string, Notification[]> = {};
+
+    notifications.forEach((notification) => {
+      const date = new Date(notification.created_at).toLocaleDateString(
+        "en-US",
+        {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        },
+      );
+
+      if (!groups[date]) {
+        groups[date] = [];
+      }
+
+      groups[date].push(notification);
+    });
+
+    return groups;
+  }, [notifications]);
 
   // Fetch notifications when the component mounts or when the dropdown is opened
   useEffect(() => {
     if (user && isOpen) {
       fetchNotifications();
     }
-  }, [user, isOpen]);
+  }, [user, isOpen, categoryFilter, typeFilter, showUnreadOnly]);
 
   // Subscribe to new notifications
   useEffect(() => {
@@ -47,9 +84,18 @@ const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({
 
     const { unsubscribe } = notificationsService.subscribeToNotifications(
       (notification) => {
-        // Add the new notification to the list
-        setNotifications((prev) => [notification, ...prev]);
-        // Increment the unread count
+        // Check if notification passes current filters
+        const passesFilters =
+          (!categoryFilter || notification.category === categoryFilter) &&
+          (!typeFilter || notification.type === typeFilter) &&
+          (!showUnreadOnly || !notification.is_read);
+
+        if (passesFilters) {
+          // Add the new notification to the list
+          setNotifications((prev) => [notification, ...prev]);
+        }
+
+        // Always increment the unread count
         setUnreadCount((prev) => prev + 1);
       },
     );
@@ -57,7 +103,7 @@ const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({
     return () => {
       unsubscribe();
     };
-  }, [user]);
+  }, [user, categoryFilter, typeFilter, showUnreadOnly]);
 
   // Fetch unread count periodically
   useEffect(() => {
@@ -74,15 +120,27 @@ const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({
     };
   }, [user]);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (loadMore = false) => {
     if (!user) return;
 
     setIsLoading(true);
     try {
-      const { data } = await notificationsService.getNotifications({
+      const { data, metadata } = await notificationsService.getNotifications({
         limit: 10,
+        cursor: loadMore ? nextCursor : undefined,
+        includeRead: !showUnreadOnly,
+        category: categoryFilter as NotificationCategory | undefined,
+        type: typeFilter as NotificationType | undefined,
       });
-      setNotifications(data);
+
+      if (loadMore) {
+        setNotifications((prev) => [...prev, ...data]);
+      } else {
+        setNotifications(data);
+      }
+
+      setHasMore(metadata.hasMore);
+      setNextCursor(metadata.nextCursor);
     } catch (error) {
       console.error("Error fetching notifications:", error);
     } finally {
@@ -133,6 +191,18 @@ const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({
     }
   };
 
+  const handleLoadMore = () => {
+    if (hasMore && !isLoading) {
+      fetchNotifications(true);
+    }
+  };
+
+  const resetFilters = () => {
+    setCategoryFilter(null);
+    setTypeFilter(null);
+    setShowUnreadOnly(false);
+  };
+
   const getNotificationIcon = (type: NotificationType) => {
     switch (type) {
       case NotificationType.FEEDBACK:
@@ -169,6 +239,115 @@ const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({
     }
   };
 
+  const getCategoryBadge = (category: NotificationCategory) => {
+    switch (category) {
+      case NotificationCategory.ACTIVITY:
+        return (
+          <Badge
+            variant="outline"
+            className="text-xs bg-blue-50 border-blue-200"
+          >
+            Activity
+          </Badge>
+        );
+      case NotificationCategory.COLLABORATION:
+        return (
+          <Badge
+            variant="outline"
+            className="text-xs bg-green-50 border-green-200"
+          >
+            Collaboration
+          </Badge>
+        );
+      case NotificationCategory.GAMIFICATION:
+        return (
+          <Badge
+            variant="outline"
+            className="text-xs bg-purple-50 border-purple-200"
+          >
+            Gamification
+          </Badge>
+        );
+      case NotificationCategory.SYSTEM:
+        return (
+          <Badge
+            variant="outline"
+            className="text-xs bg-slate-50 border-slate-200"
+          >
+            System
+          </Badge>
+        );
+      case NotificationCategory.GENERAL:
+      default:
+        return (
+          <Badge
+            variant="outline"
+            className="text-xs bg-gray-50 border-gray-200"
+          >
+            General
+          </Badge>
+        );
+    }
+  };
+
+  const renderNotificationItem = (notification: Notification) => (
+    <DropdownMenuItem
+      key={notification.id}
+      className={`py-3 px-4 cursor-pointer ${notification.is_read ? "opacity-70" : "font-medium"}`}
+      onSelect={(e) => {
+        // Prevent the dropdown from closing
+        e.preventDefault();
+        // Mark as read if not already read
+        if (!notification.is_read) {
+          handleMarkAsRead(notification.id);
+        }
+      }}
+    >
+      <div className="flex flex-col gap-1 w-full">
+        <div className="flex justify-between items-start">
+          <div className="flex gap-2 items-center">
+            {getNotificationIcon(notification.type)}
+            {getCategoryBadge(notification.category as NotificationCategory)}
+          </div>
+          <span className="text-xs text-gray-500">
+            {formatDistanceToNow(new Date(notification.created_at), {
+              addSuffix: true,
+            })}
+          </span>
+        </div>
+        <span className="text-sm">{notification.title}</span>
+        {notification.content && (
+          <span className="text-xs text-gray-500 line-clamp-2">
+            {notification.content}
+          </span>
+        )}
+        {notification.link && (
+          <Link
+            to={notification.link}
+            className="text-xs text-blue-600 hover:text-blue-800 mt-1"
+            onClick={(e) => e.stopPropagation()}
+          >
+            View details
+          </Link>
+        )}
+      </div>
+    </DropdownMenuItem>
+  );
+
+  const renderGroupedNotifications = () => {
+    return Object.entries(groupedNotifications).map(([date, items]) => (
+      <div key={date} className="mb-2">
+        <div className="px-4 py-1 text-xs font-medium text-slate-500 bg-slate-50">
+          {date}
+        </div>
+        {items.map(renderNotificationItem)}
+      </div>
+    ));
+  };
+
+  const hasActiveFilters =
+    categoryFilter !== null || typeFilter !== null || showUnreadOnly;
+
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
@@ -186,22 +365,156 @@ const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80">
-        <DropdownMenuLabel className="flex justify-between items-center">
-          <span>Notifications</span>
-          {unreadCount > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs h-6 px-2"
-              onClick={handleMarkAllAsRead}
-            >
-              Mark all as read
-            </Button>
-          )}
-        </DropdownMenuLabel>
+        <div className="flex justify-between items-center p-2">
+          <DropdownMenuLabel className="px-2 py-0">
+            Notifications
+          </DropdownMenuLabel>
+          <div className="flex items-center gap-2">
+            {unreadCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs h-6 px-2"
+                onClick={handleMarkAllAsRead}
+              >
+                Mark all as read
+              </Button>
+            )}
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger className="h-6 px-2">
+                <Filter className="h-3 w-3 mr-1" />
+                <span className="text-xs">Filter</span>
+                {hasActiveFilters && (
+                  <Badge
+                    variant="secondary"
+                    className="ml-1 h-4 px-1 text-[10px]"
+                  >
+                    {
+                      Object.values([
+                        categoryFilter,
+                        typeFilter,
+                        showUnreadOnly,
+                      ]).filter(Boolean).length
+                    }
+                  </Badge>
+                )}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <DropdownMenuSubContent className="w-56">
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="text-xs">
+                      Category
+                    </DropdownMenuLabel>
+                    <DropdownMenuRadioGroup
+                      value={categoryFilter || ""}
+                      onValueChange={(value) =>
+                        setCategoryFilter(value || null)
+                      }
+                    >
+                      <DropdownMenuRadioItem value="">
+                        All Categories
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem
+                        value={NotificationCategory.GENERAL}
+                      >
+                        General
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem
+                        value={NotificationCategory.ACTIVITY}
+                      >
+                        Activity
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem
+                        value={NotificationCategory.COLLABORATION}
+                      >
+                        Collaboration
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem
+                        value={NotificationCategory.GAMIFICATION}
+                      >
+                        Gamification
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem
+                        value={NotificationCategory.SYSTEM}
+                      >
+                        System
+                      </DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuGroup>
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="text-xs">
+                      Type
+                    </DropdownMenuLabel>
+                    <DropdownMenuRadioGroup
+                      value={typeFilter || ""}
+                      onValueChange={(value) => setTypeFilter(value || null)}
+                    >
+                      <DropdownMenuRadioItem value="">
+                        All Types
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value={NotificationType.SYSTEM}>
+                        System
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value={NotificationType.FEEDBACK}>
+                        Feedback
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value={NotificationType.PROJECT}>
+                        Project
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value={NotificationType.REWARD}>
+                        Reward
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem
+                        value={NotificationType.ACHIEVEMENT}
+                      >
+                        Achievement
+                      </DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuGroup>
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="text-xs">
+                      Status
+                    </DropdownMenuLabel>
+                    <DropdownMenuRadioGroup
+                      value={showUnreadOnly ? "unread" : "all"}
+                      onValueChange={(value) =>
+                        setShowUnreadOnly(value === "unread")
+                      }
+                    >
+                      <DropdownMenuRadioItem value="all">
+                        All
+                      </DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="unread">
+                        Unread only
+                      </DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuGroup>
+
+                  <DropdownMenuSeparator />
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-xs justify-center"
+                    onClick={resetFilters}
+                    disabled={!hasActiveFilters}
+                  >
+                    Reset Filters
+                  </Button>
+                </DropdownMenuSubContent>
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
+          </div>
+        </div>
         <DropdownMenuSeparator />
         <ScrollArea className="h-[300px]">
-          {isLoading ? (
+          {isLoading && notifications.length === 0 ? (
             <div className="p-4 space-y-4">
               {Array.from({ length: 3 }).map((_, index) => (
                 <div key={index} className="flex items-start gap-2">
@@ -214,49 +527,28 @@ const NotificationsPopover: React.FC<NotificationsPopoverProps> = ({
               ))}
             </div>
           ) : notifications.length > 0 ? (
-            notifications.map((notification) => (
-              <DropdownMenuItem
-                key={notification.id}
-                className={`py-3 px-4 cursor-pointer ${notification.is_read ? "opacity-70" : "font-medium"}`}
-                onSelect={(e) => {
-                  // Prevent the dropdown from closing
-                  e.preventDefault();
-                  // Mark as read if not already read
-                  if (!notification.is_read) {
-                    handleMarkAsRead(notification.id);
-                  }
-                }}
-              >
-                <div className="flex flex-col gap-1 w-full">
-                  <div className="flex justify-between items-start">
-                    {getNotificationIcon(notification.type)}
-                    <span className="text-xs text-gray-500">
-                      {formatDistanceToNow(new Date(notification.created_at), {
-                        addSuffix: true,
-                      })}
-                    </span>
-                  </div>
-                  <span className="text-sm">{notification.title}</span>
-                  {notification.content && (
-                    <span className="text-xs text-gray-500 line-clamp-2">
-                      {notification.content}
-                    </span>
-                  )}
-                  {notification.link && (
-                    <Link
-                      to={notification.link}
-                      className="text-xs text-blue-600 hover:text-blue-800 mt-1"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      View details
-                    </Link>
-                  )}
+            <div className="py-1">
+              {renderGroupedNotifications()}
+
+              {hasMore && (
+                <div className="p-2 flex justify-center">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs w-full"
+                    onClick={handleLoadMore}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Loading..." : "Load More"}
+                  </Button>
                 </div>
-              </DropdownMenuItem>
-            ))
+              )}
+            </div>
           ) : (
             <div className="py-4 px-4 text-center text-gray-500">
-              No notifications yet
+              {hasActiveFilters
+                ? "No notifications match your filters"
+                : "No notifications yet"}
             </div>
           )}
         </ScrollArea>
