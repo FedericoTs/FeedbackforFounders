@@ -68,6 +68,18 @@ export function AwardToastListener() {
           enrichedMetadata.context = `You've reached level ${metadata?.level || "up"}! New features unlocked.`;
         }
 
+        // For streaks, add context about the streak
+        if (variant === "streak" && !enrichedMetadata.context) {
+          const streakDays = metadata?.streakDays || "consecutive";
+          enrichedMetadata.context = `You've maintained a ${streakDays} day streak! Consistency is key.`;
+        }
+
+        // For feedback, add context about the feedback quality
+        if (variant === "feedback" && !enrichedMetadata.context) {
+          const quality = metadata?.quality || "valuable";
+          enrichedMetadata.context = `Your ${quality} feedback helps improve the platform for everyone.`;
+        }
+
         showAwardToast({
           points,
           title,

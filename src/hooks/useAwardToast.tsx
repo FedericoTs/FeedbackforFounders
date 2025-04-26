@@ -23,12 +23,15 @@ interface AwardToastOptions {
   metadata?: Record<string, any>;
   priority?: number; // Higher number = higher priority
   sound?: boolean; // Whether to play sound
+  timestamp?: string; // ISO string timestamp
 }
 
 interface AwardToastContextValue {
   showAwardToast: (options: AwardToastOptions) => void;
   clearToasts: () => void;
   toastHistory: AwardToastOptions[];
+  isSoundEnabled: boolean;
+  toggleSound: () => void;
 }
 
 const AwardToastContext = createContext<AwardToastContextValue | undefined>(
@@ -76,6 +79,17 @@ export const AwardToastProvider = ({
       if (storedSoundPreference !== null) {
         setSoundEnabled(storedSoundPreference === "true");
       }
+
+      // Try to preload sound effects
+      try {
+        Object.values(SOUND_EFFECTS).forEach((path) => {
+          const audio = new Audio();
+          audio.src = path;
+          audio.preload = "auto";
+        });
+      } catch (error) {
+        console.error("Error preloading sounds:", error);
+      }
     }
 
     return () => {
@@ -86,18 +100,28 @@ export const AwardToastProvider = ({
     };
   }, []);
 
-  // Play sound effect based on variant
+  // Play sound effect based on variant with enhanced experience
   const playSound = useCallback(
     (variant: AwardToastVariant = "default") => {
       if (!soundEnabled || !audioRef.current) return;
 
       try {
         const soundPath = SOUND_EFFECTS[variant] || SOUND_EFFECTS.default;
+
+        // Stop any currently playing sound
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+
+        // Set up new sound
         audioRef.current.src = soundPath;
         audioRef.current.volume = 0.5; // Set volume to 50%
-        audioRef.current.play().catch((err) => {
-          console.error("Error playing sound:", err);
-        });
+
+        // Add a slight delay for better user experience when multiple sounds would play
+        setTimeout(() => {
+          audioRef.current?.play().catch((err) => {
+            console.error("Error playing sound:", err);
+          });
+        }, 50);
       } catch (error) {
         console.error("Error setting up sound:", error);
       }
@@ -138,9 +162,13 @@ export const AwardToastProvider = ({
         playSound(nextToast.variant);
       }
 
-      // Add to history
+      // Add to history with timestamp if not already present
       setToastHistory((prev) => {
-        const newHistory = [nextToast, ...prev].slice(0, MAX_HISTORY_SIZE);
+        const enrichedToast = {
+          ...nextToast,
+          timestamp: nextToast.timestamp || new Date().toISOString(),
+        };
+        const newHistory = [enrichedToast, ...prev].slice(0, MAX_HISTORY_SIZE);
         return newHistory;
       });
     }
@@ -154,7 +182,7 @@ export const AwardToastProvider = ({
       const enrichedOptions = {
         ...options,
         priority: options.priority || 0,
-        timestamp: new Date().toISOString(),
+        timestamp: options.timestamp || new Date().toISOString(),
       };
 
       toastQueue.current.push(enrichedOptions);
@@ -187,7 +215,13 @@ export const AwardToastProvider = ({
 
   return (
     <AwardToastContext.Provider
-      value={{ showAwardToast, clearToasts, toastHistory }}
+      value={{
+        showAwardToast,
+        clearToasts,
+        toastHistory,
+        isSoundEnabled: soundEnabled,
+        toggleSound,
+      }}
     >
       {children}
       <AwardToast
