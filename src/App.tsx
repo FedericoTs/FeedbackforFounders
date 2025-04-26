@@ -37,6 +37,7 @@ import PointsAnimationListener from "./components/dashboard/PointsAnimationListe
 import { AuthLoading } from "./components/ui/auth-loading";
 import { Spinner } from "./components/ui/spinner";
 import SessionTimeoutProvider from "./components/auth/SessionTimeoutProvider";
+import { useRoutePreloading } from "./hooks/useRoutePreloading";
 
 interface PrivateRouteProps {
   children: React.ReactNode;
@@ -137,12 +138,22 @@ function AppRoutes() {
 }
 
 function App() {
+  // Use the route preloading hook to preload related routes
+  useRoutePreloading();
+
   return (
     <ThemeProvider defaultTheme="light">
       <AuthProvider>
         <SessionTimeoutProvider>
           <AwardToastProvider>
-            <Suspense fallback={<p>Loading...</p>}>
+            <Suspense
+              fallback={
+                <div className="flex items-center justify-center h-screen">
+                  <Spinner className="h-8 w-8 text-teal-500" />
+                  <span className="ml-2 text-slate-600">Loading...</span>
+                </div>
+              }
+            >
               <ErrorBoundary>
                 <AppRoutes />
               </ErrorBoundary>

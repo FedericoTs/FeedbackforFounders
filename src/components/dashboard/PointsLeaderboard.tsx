@@ -247,5 +247,8 @@ const PointsLeaderboard: React.FC<PointsLeaderboardProps> = ({
   );
 };
 
+// Apply React.memo to optimize rendering performance
+const MemoizedPointsLeaderboard = React.memo(PointsLeaderboard);
+
 export { PointsLeaderboard };
-export default PointsLeaderboard;
+export default MemoizedPointsLeaderboard;

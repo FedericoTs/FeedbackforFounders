@@ -23,4 +23,26 @@ export default defineConfig({
     // @ts-ignore
     allowedHosts: true,
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Group core React dependencies together
+          "react-vendor": ["react", "react-dom", "react-router-dom"],
+          // Group UI components together
+          "ui-components": ["@/components/ui"],
+          // Group dashboard components together
+          dashboard: ["@/components/dashboard"],
+          // Group auth components together
+          auth: ["@/components/auth", "@/supabase/auth"],
+          // Group feedback components together
+          feedback: ["@/components/feedback"],
+        },
+      },
+    },
+    // Improve chunk size reporting during build
+    reportCompressedSize: true,
+    // Set chunk size warning limit (in kBs)
+    chunkSizeWarningLimit: 1000,
+  },
 });
